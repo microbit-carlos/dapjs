@@ -24,13 +24,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DAPjs Demo</title>
+    <title>DAPjs micro:bit WebUSB flashing</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link href="https://fonts.googleapis.com/css?family=Raleway:400,600" rel="stylesheet">
 	<style>
         html { margin: 0; padding: 0; border: 0; }
-        body { font-family: 'Raleway', sans-serif; color: #d7ecfb; background-color: #072b44; text-align: center; }
+        body { font-family: 'Raleway', sans-serif; color: #d7ecfb; background-color: #124b63; text-align: center; }
         h1 { font-weight: 400; }
         strong { font-weight: 600; }
         #drop { position: relative; margin: 20px auto; max-width: 500px; background-color: rgba(255, 255, 255, 0.10); padding: 100px 20px 80px 20px; outline: 2px dashed #072b44; outline-offset: -10px; }
@@ -42,8 +42,8 @@
         #label { cursor: pointer; }
         #label:hover strong { color: #8bb5ba; }
         #select { position: absolute; left: 0; right: 0; visibility: hidden; }
-        #button { font-size: 12px; color: inherit; margin: 20px auto; border: 0px; background-color: #1b679c; height: 30px; padding: 0 30px; border-radius: 4px; text-transform: uppercase; cursor: pointer; outline: none; }
-        #button:hover { background: #2674ab; }
+        #button { font-size: 12px; color: inherit; margin: 20px auto; border: 0px; background-color: #0b394d; height: 30px; padding: 0 30px; border-radius: 4px; text-transform: uppercase; cursor: pointer; outline: none; }
+        #button:hover { background: #31748e; }
         #status { margin: 20px auto; border: 1px solid #d7ecfb; width: 70%; height: 24px; visibility: hidden; }
         #bar { background: #2674ab; width: 0%; height: 100%; }
         #transfer { width: 100%; line-height: 24px; margin-top: -24px; }
@@ -51,7 +51,7 @@
 </head>
 
 <body>
-    <h1>DAPjs WebUSB Flash</h1>
+    <h1>micro:bit WebUSB Universal Hex Flasher</h1>
     <div id="drop">
 		<svg id="icon" xmlns="http://www.w3.org/2000/svg" width="50" height="43" viewBox="0 0 50 43">
             <path d="M48.4 26.5c-.9 0-1.7.7-1.7 1.7v11.6h-43.3v-11.6c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v13.2c0 .9.7 1.7 1.7 1.7h46.7c.9 0 1.7-.7 1.7-1.7v-13.2c0-1-.7-1.7-1.7-1.7zm-24.5 6.1c.3.3.8.5 1.2.5.4 0 .9-.2 1.2-.5l10-11.6c.7-.7.7-1.7 0-2.4s-1.7-.7-2.4 0l-7.1 8.3v-25.3c0-.9-.7-1.7-1.7-1.7s-1.7.7-1.7 1.7v25.3l-7.1-8.3c-.7-.7-1.7-.7-2.4 0s-.7 1.7 0 2.4l10 11.6z"/>
@@ -59,12 +59,12 @@
 
 		<input id="file" type="file" />
 		<label id="label" for="file">
-            <strong>Choose a firmware image</strong>
+            <strong>Choose a Universal Hex file</strong>
             <span>or drag it here</span>
         </label>
 
         <div id="select">
-            <button id="button">Select Device</button>
+            <button id="button">Send to micro:bit</button>
         </div>
 
         <div id="status">
@@ -116,7 +116,7 @@
             const reader = new FileReader();
             reader.onloadend = evt => {
                 hexStr = evt.target.result;
-                setStatus(`Firmware image: ${file.name}`);
+                setStatus(`Hex file: ${file.name}`);
                 selectEl.style.visibility = "visible";
             }
             reader.readAsText(file);
@@ -129,7 +129,7 @@
 
             try {
                 const device = await navigator.usb.requestDevice({
-                    filters: [{vendorId: 0xD28}]
+                    filters: [{vendorId: 0x0d28, productId: 0x0204}]
                 });
                 await update(device);
             } catch (error) {
@@ -172,7 +172,6 @@
             for (let i = 0; i < hexStr.length; i++) {
                 hexBuffer[i] = hexStr.charCodeAt(i);
             }
-            //const hexBufferWHAT = hexBuffer.buffer;
 
             target.on(DAPjs.DAPLink.EVENT_PROGRESS, progress => {
                 setTransfer(progress);
@@ -181,8 +180,7 @@
             try {
                 // Push binary to board
                 setStatus(`Flashing hex file ${hexBuffer.length} bytes long...`);
-                //await target.connect();
-                await transport.open();
+                await target.connect();
                 await target.flash(hexBuffer);
 
                 setStatus("Disconnecting...");
