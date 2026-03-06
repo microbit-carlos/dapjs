@@ -171,6 +171,7 @@ export class CmsisDAP extends EventEmitter implements Proxy {
         await this.sendMutex.lock();
 
         try {
+            console.log('[DAPdbg] Send cmd: 0x' + command.toString(16));
             await this.transport.write(array);
             const response = await this.transport.read();
 
@@ -178,6 +179,7 @@ export class CmsisDAP extends EventEmitter implements Proxy {
                 throw new Error(`Bad response for ${command} -> ${response.getUint8(0)}`);
             }
 
+            console.log('[DAPdbg] Response: 0x' + response.getUint8(1).toString(16));
             switch (command) {
                 case DAPCommand.DAP_DISCONNECT:
                 case DAPCommand.DAP_WRITE_ABORT:

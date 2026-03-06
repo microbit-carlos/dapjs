@@ -230,6 +230,7 @@ export class ADI implements DAP {
     public async connect() {
         const mask = CtrlStatMask.CDBGPWRUPACK | CtrlStatMask.CSYSPWRUPACK;
 
+        console.log('[ADI] Connecting...');
         await this.proxy.connect();
         await this.readDP(DPRegister.DPIDR);
         await this.transferSequence([
@@ -243,6 +244,7 @@ export class ADI implements DAP {
             const status = await this.readDP(DPRegister.CTRL_STAT);
             return (status & mask) === mask;
         });
+        console.log('[ADI] Connected, power-up confirmed');
     }
 
     /**
@@ -250,6 +252,7 @@ export class ADI implements DAP {
      * @returns Promise
      */
     public disconnect(): Promise<void> {
+        console.log('[ADI] Disconnecting');
         return this.proxy.disconnect();
     }
 
@@ -427,6 +430,7 @@ export class ADI implements DAP {
      * @returns Promise of register data
      */
     public async readBlock(register: number, count: number): Promise<Uint32Array> {
+        console.log(`[ADI] readBlock reg=0x${register.toString(16)} count=${count}`);
         const results: Uint32Array[] = [];
 
         // Split into reads that do not cross TAR autoincrement boundaries
@@ -450,6 +454,7 @@ export class ADI implements DAP {
      * @returns Promise
      */
     public async writeBlock(register: number, values: Uint32Array): Promise<void> {
+        console.log(`[ADI] writeBlock reg=0x${register.toString(16)} values=${values.length} words (${values.byteLength}B)`);
         // Split into writes that do not cross TAR autoincrement boundaries
         let index = 0;
         while (index < values.length) {

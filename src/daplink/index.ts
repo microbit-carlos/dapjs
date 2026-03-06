@@ -127,9 +127,14 @@ export class DAPLink extends CmsisDAP {
         data.set([page.byteLength]);
         data.set(new Uint8Array(page), 1);
 
+        const pageNum = Math.floor(offset / pageSize);
+        const totalPages = Math.ceil(buffer.byteLength / pageSize);
+        const t0 = performance.now();
         try {
             await this.send(DAPLinkFlash.WRITE, data);
+            console.log(`[DAPdbg] Page ${pageNum + 1}/${totalPages} written (${page.byteLength}B @ offset ${offset}, ${(performance.now() - t0).toFixed(1)}ms)`);
         } catch (error) {
+            console.error(`[DAPdbg] writeBuffer error at page ${pageNum + 1}/${totalPages}, offset ${offset}:`, error);
             await this.clearAbort();
             throw error;
         }
@@ -153,26 +158,36 @@ export class DAPLink extends CmsisDAP {
 
         const arrayBuffer = isView(buffer) ? buffer.buffer : buffer;
         const streamType = this.isBufferBinary(arrayBuffer) ? 0 : 1;
+        const totalPages = Math.ceil(arrayBuffer.byteLength / pageSize);
+        console.log(`[DAPdbg] Flash starting: ${arrayBuffer.byteLength}B, pageSize=${pageSize}, ~${totalPages} pages, streamType=${streamType === 0 ? 'binary' : 'text'}`);
+        const flashStart = performance.now();
 
         try {
             let result = await this.send(DAPLinkFlash.OPEN, new Uint32Array([streamType]));
 
             // An error occurred
             if (result.getUint8(1) !== 0) {
+                console.error(`[DAPdbg] Flash OPEN failed, status=0x${result.getUint8(1).toString(16)}`);
                 throw new Error('Flash error');
             }
+            console.log('[DAPdbg] Flash stream opened');
 
             await this.writeBuffer(arrayBuffer, pageSize);
             this.emit(DAPLink.EVENT_PROGRESS, 1.0);
+            console.log('[DAPdbg] All pages written, closing stream...');
             result = await this.send(DAPLinkFlash.CLOSE);
 
             // An error occurred
             if (result.getUint8(1) !== 0) {
+                console.error(`[DAPdbg] Flash CLOSE failed, status=0x${result.getUint8(1).toString(16)}`);
                 throw new Error('Flash error');
             }
 
+            console.log('[DAPdbg] Resetting target...');
             await this.send(DAPLinkFlash.RESET);
+            console.log(`[DAPdbg] Flash complete in ${((performance.now() - flashStart) / 1000).toFixed(1)}s`);
         } catch (error) {
+            console.error('[DAPdbg] Flash error:', error);
             await this.clearAbort();
             throw error;
         }
