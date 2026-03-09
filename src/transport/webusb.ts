@@ -144,6 +144,7 @@ export class WebUSB implements Transport {
         }
 
         let result: USBInTransferResult;
+        const t0 = performance.now();
 
         if (this.endpointIn) {
             // Use endpoint if it exists
@@ -151,6 +152,8 @@ export class WebUSB implements Transport {
                 this.endpointIn.endpointNumber,
                 this.packetSize
             );
+            const dt = performance.now() - t0;
+            console.log(`[WebUSB] transferIn(ep=${this.endpointIn.endpointNumber}, ${this.packetSize}B) (cmd: 0x${result.data!.getUint8(0).toString(16)}) ${dt.toFixed(1)}ms`);
         } else {
             // Fallback to using control transfer
             result = await this.device.controlTransferIn(
@@ -163,6 +166,8 @@ export class WebUSB implements Transport {
                 },
                 this.packetSize
             );
+            const dt = performance.now() - t0;
+            console.log(`[WebUSB] controlTransferIn(${this.packetSize}B) (cmd: 0x${result.data!.getUint8(0).toString(16)}) ${dt.toFixed(1)}ms`);
         }
 
         return result.data!;
@@ -179,6 +184,7 @@ export class WebUSB implements Transport {
         }
 
         const buffer = this.extendBuffer(data, this.packetSize);
+        const t0 = performance.now();
 
         if (this.endpointOut) {
             // Use endpoint if it exists
@@ -186,6 +192,9 @@ export class WebUSB implements Transport {
                 this.endpointOut.endpointNumber,
                 buffer
             );
+            const dt = performance.now() - t0;
+            const bytes = new Uint8Array(buffer as ArrayBufferLike);
+            console.log(`[WebUSB] transferOut(ep=${this.endpointOut.endpointNumber}, ${this.packetSize}B) (cmd: 0x${bytes[0].toString(16)}) ${dt.toFixed(1)}ms`);
         } else {
             // Fallback to using control transfer
             await this.device.controlTransferOut(
@@ -198,6 +207,9 @@ export class WebUSB implements Transport {
                 },
                 buffer
             );
+            const dt = performance.now() - t0;
+            const bytes = new Uint8Array(buffer as ArrayBufferLike);
+            console.log(`[WebUSB] controlTransferOut(${this.packetSize}B) (cmd: 0x${bytes[0].toString(16)}) ${dt.toFixed(1)}ms`);
         }
     }
 }

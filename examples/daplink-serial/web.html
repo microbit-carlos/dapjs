@@ -29,18 +29,27 @@
 
         // Listen to serial output from the device
         const listen = async (device, resultsEl) => {
+            console.log(`[DAPdbg] Device: ${device.productName || 'Unknown'} (vendorId: 0x${device.vendorId.toString(16)}, productId: 0x${device.productId.toString(16)})`);
+
+            let start = performance.now();
             const transport = new DAPjs.WebUSB(device);
             const target = new DAPjs.DAPLink(transport);
 
             target.on(DAPjs.DAPLink.EVENT_SERIAL_DATA, data => {
+                console.log(`[DAPdbg] Data received, ${data.length} chars): ${data}`);
                 resultsEl.innerHTML += `${data}`;
             });
 
+            console.log("[DAPdbg] Connecting...");
+            start = performance.now();
             await target.connect();
+            console.log(`[DAPdbg] Connected in ${(performance.now() - start).toFixed(1)}ms`);
+
             const baud = await target.getSerialBaudrate();
             await target.disconnect();
             resultsEl.innerHTML = `Listening at ${baud} baud...\n`;
 
+            console.log("[DAPdbg] Starting serial read loop...");
             target.startSerialRead();
         };
 
