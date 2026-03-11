@@ -45,6 +45,7 @@ export class HID implements Transport {
      * @returns Promise
      */
     public async open(): Promise<void> {
+        console.log(`[HID] Opened device (os=${this.os}, packetSize=${this.packetSize})`);
         return;
     }
 
@@ -61,6 +62,7 @@ export class HID implements Transport {
      * @returns Promise of DataView
      */
     public async read(): Promise<DataView> {
+        const t0 = performance.now();
         const array = await new Promise<number[]>((resolve, reject) => {
             this.device!.read((error: string, data: number[]) => {
                 if (error) {
@@ -70,6 +72,8 @@ export class HID implements Transport {
                 }
             });
         });
+        const dt = performance.now() - t0;
+        console.log(`[HID] read() ${array.length}B ${dt.toFixed(2)}ms`);
 
         const buffer = new Uint8Array(array).buffer;
         return new DataView(buffer);
@@ -97,7 +101,10 @@ export class HID implements Transport {
             array.unshift(0);  // prepend throwaway byte
         }
 
+        const t0 = performance.now();
         const bytesWritten = this.device.write(array);
+        const dt = performance.now() - t0;
+        console.log(`[HID] write() ${bytesWritten}B ${dt.toFixed(2)}ms`);
         if (bytesWritten !== array.length) {
             throw new Error('Incorrect bytecount written');
         }

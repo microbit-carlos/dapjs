@@ -61,6 +61,8 @@ const getDevices = async (vendorID) => {
         const program = await common.getFile();
         const devices = await getDevices(common.DAPLINK_VENDOR);
         const device = await common.selectDevice(devices);
+        const desc = device.deviceDescriptor;
+        console.log(`[usb.js] Selected device: vendorId=0x${desc.idVendor.toString(16)}, productId=0x${desc.idProduct.toString(16)}, name=${device.name}`);
         const transport = new DAPjs.USB(device);
         await common.flash(transport, program);
     } catch(error) {

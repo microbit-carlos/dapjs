@@ -40,6 +40,7 @@ const getDevices = (vendorID) => {
         const program = await common.getFile();
         const devices = getDevices(common.DAPLINK_VENDOR);
         const selected = await common.selectDevice(devices);
+        console.log(`[hid.js] Selected device: vendorId=0x${selected.vendorId.toString(16)}, productId=0x${selected.productId.toString(16)}, name=${selected.name}, path=${selected.path}`);
         const device = new hid.HID(selected.path);
         const transport = new DAPjs.HID(device);
         await common.flash(transport, program);

@@ -169,6 +169,20 @@ export class USB implements Transport {
                 }
             }
         }
+
+        const desc = this.device.deviceDescriptor;
+        console.log(`[USB] Opened device: vendorId=0x${desc.idVendor.toString(16)}, productId=0x${desc.idProduct.toString(16)}`);
+        console.log(`[USB] Interface: ${this.interfaceNumber}, alwaysControlTransfer: ${this.alwaysControlTransfer}`);
+        if (this.endpointIn) {
+            console.log(`[USB] Endpoint IN: address=0x${this.endpointIn.descriptor.bEndpointAddress.toString(16)}, maxPacketSize=${this.endpointIn.descriptor.wMaxPacketSize}, type=${this.endpointIn.transferType}`);
+        } else {
+            console.log('[USB] Endpoint IN: none (using control transfer)');
+        }
+        if (this.endpointOut) {
+            console.log(`[USB] Endpoint OUT: address=0x${this.endpointOut.descriptor.bEndpointAddress.toString(16)}, maxPacketSize=${this.endpointOut.descriptor.wMaxPacketSize}, type=${this.endpointOut.transferType}`);
+        } else {
+            console.log('[USB] Endpoint OUT: none (using control transfer)');
+        }
     }
 
     /**
@@ -189,9 +203,12 @@ export class USB implements Transport {
         }
 
         const result = await new Promise<Buffer>((resolve, reject) => {
+            const t0 = performance.now();
             // Use endpoint if it exists
             if (this.endpointIn) {
                 this.endpointIn.transfer(this.packetSize, (exception, buffer) => {
+                    const dt = performance.now() - t0;
+                    console.log(`[USB] endpointIn.transfer(${this.packetSize}B) ${dt.toFixed(2)}ms`);
                     if (exception) {
                         reject(exception);
                     } else {
@@ -213,6 +230,8 @@ export class USB implements Transport {
                 this.interfaceNumber!,
                 this.packetSize,
                 (exception, buffer) => {
+                    const dt = performance.now() - t0;
+                    console.log(`[USB] controlTransferIn(${this.packetSize}B) ${dt.toFixed(2)}ms`);
                     if (exception) {
                         reject(exception);
                     } else if (!buffer) {
@@ -242,9 +261,12 @@ export class USB implements Transport {
         const buffer = this.bufferSourceToBuffer(extended);
 
         await new Promise<void>((resolve, reject) => {
+            const t0 = performance.now();
             // Use endpoint if it exists
             if (this.endpointOut) {
                 this.endpointOut.transfer(buffer, exception => {
+                    const dt = performance.now() - t0;
+                    console.log(`[USB] endpointOut.transfer(${buffer.length}B) ${dt.toFixed(2)}ms`);
                     if (exception) {
                         return reject(exception);
                     } else {
@@ -262,6 +284,8 @@ export class USB implements Transport {
                 this.interfaceNumber!,
                 buffer,
                 exception => {
+                    const dt = performance.now() - t0;
+                    console.log(`[USB] controlTransferOut(${buffer.length}B) ${dt.toFixed(2)}ms`);
                     if (exception) {
                         return reject(exception);
                     } else {

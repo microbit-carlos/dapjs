@@ -123,6 +123,19 @@ export class WebUSB implements Transport {
             }
         }
 
+        console.log(`[WebUSB] Opened device: ${this.device.productName || 'Unknown'} (vendorId=0x${this.device.vendorId.toString(16)}, productId=0x${this.device.productId.toString(16)})`);
+        console.log(`[WebUSB] Interface: ${this.interfaceNumber}, alwaysControlTransfer: ${this.alwaysControlTransfer}`);
+        if (this.endpointIn) {
+            console.log(`[WebUSB] Endpoint IN: ep=${this.endpointIn.endpointNumber}, packetSize=${this.endpointIn.packetSize}, type=${this.endpointIn.type}`);
+        } else {
+            console.log('[WebUSB] Endpoint IN: none (using control transfer)');
+        }
+        if (this.endpointOut) {
+            console.log(`[WebUSB] Endpoint OUT: ep=${this.endpointOut.endpointNumber}, packetSize=${this.endpointOut.packetSize}, type=${this.endpointOut.type}`);
+        } else {
+            console.log('[WebUSB] Endpoint OUT: none (using control transfer)');
+        }
+
         return this.device.claimInterface(this.interfaceNumber);
     }
 
