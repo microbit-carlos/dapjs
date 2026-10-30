@@ -1,0 +1,1248 @@
+<!--
+ DAPjs
+ Copyright Arm Limited 2018
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>micro:bit USB speed test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css?family=Raleway:400,600" rel="stylesheet">
+    <style>
+        html { margin: 0; padding: 0; border: 0; }
+        body { font-family: 'Raleway', sans-serif; color: #d7ecfb; background-color: #072b44; margin: 0 16px 40px 16px; }
+        h1 { font-weight: 400; text-align: center; }
+        h2 { font-weight: 600; font-size: 16px; margin: 0 0 10px 0; }
+        strong { font-weight: 600; }
+        a { color: #8bb5ba; }
+        section { max-width: 980px; margin: 14px auto; background-color: rgba(255, 255, 255, 0.10); padding: 14px 18px; border-radius: 6px; }
+        p.intro { max-width: 980px; margin: 0 auto 10px auto; font-size: 14px; }
+        pre, textarea { font-family: Menlo, Consolas, monospace; font-size: 12px; color: #d7ecfb; background: rgba(0, 0, 0, 0.25); padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; margin: 8px 0; }
+        textarea { width: 100%; box-sizing: border-box; height: 220px; border: 0; }
+        button { font-size: 12px; color: inherit; margin: 4px 6px 4px 0; border: 0; background-color: #1b679c; height: 30px; padding: 0 14px; border-radius: 4px; text-transform: uppercase; cursor: pointer; outline: none; }
+        button:hover { background: #2674ab; }
+        button:disabled { background: #3b5468; color: #9bb0bf; cursor: default; }
+        button.primary { background: #2d8f4e; }
+        button.primary:hover { background: #35a85b; }
+        button.primary:disabled { background: #3b5468; color: #9bb0bf; }
+        button.danger { background: #a63d2f; }
+        select, input[type=number], input[type=text] { font-size: 13px; padding: 4px 6px; border-radius: 4px; border: 1px solid #4b7a9a; background: #0b3a5c; color: #d7ecfb; }
+        label { font-size: 13px; margin-right: 14px; white-space: nowrap; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; }
+        .note { font-size: 12px; color: #a9c6da; margin: 6px 0; }
+        #drop { position: relative; margin: 10px 0; background-color: rgba(255, 255, 255, 0.08); padding: 18px; outline: 2px dashed #4b7a9a; outline-offset: -8px; text-align: center; }
+        #drop.hover { background-color: rgba(255, 255, 255, 0.15); }
+        #file { width: 0.1px; height: 0.1px; opacity: 0; z-index: -1; position: absolute; }
+        #label { cursor: pointer; }
+        #label:hover strong { color: #8bb5ba; }
+        #status { margin: 10px 0; border: 1px solid #d7ecfb; height: 22px; position: relative; display: none; }
+        #bar { background: #2674ab; width: 0%; height: 100%; }
+        #transfer { position: absolute; top: 0; left: 0; width: 100%; line-height: 22px; text-align: center; font-size: 12px; }
+        #live { font-size: 13px; min-height: 18px; }
+        #summary { overflow-x: auto; max-width: 100%; }
+        table { border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+        th, td { border: 1px solid #3f6a8a; padding: 3px 8px; text-align: right; white-space: nowrap; }
+        th:first-child, td:first-child { text-align: left; }
+        .hist { display: inline-block; height: 10px; background: #8bb5ba; vertical-align: middle; }
+        .err { color: #ff9d8a; }
+        .ok { color: #9ee493; }
+        ol.steps { margin: 6px 0 12px 0; padding-left: 22px; font-size: 15px; line-height: 1.6; }
+        #simpleStatus { font-size: 15px; }
+        #simpleResult { font-size: 15px; margin: 10px 0; min-height: 20px; }
+        #simple label { display: block; white-space: normal; margin: 10px 0; }
+        .warn { color: #ffd27a; font-weight: 600; }
+        ol.steps li.current { color: #fff; font-weight: 600; background: rgba(255, 210, 122, 0.18); border-radius: 4px; padding: 2px 6px; margin-left: -6px; }
+        @keyframes attention { 0% { box-shadow: 0 0 0 0 rgba(255, 210, 122, 0.9); } 70% { box-shadow: 0 0 0 16px rgba(255, 210, 122, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 210, 122, 0); } }
+        button.attention { animation: attention 1.2s ease-out infinite; background: #d9962b; color: #1a1200; font-size: 14px; height: 36px; }
+        button.attention:hover { background: #f0ab3a; }
+        #simpleNotes { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
+        details#advanced { max-width: 980px; margin: 24px auto; }
+        details#advanced > summary { cursor: pointer; font-size: 14px; color: #a9c6da; padding: 6px 0; }
+        details#advanced section { margin-left: 0; margin-right: 0; }
+    </style>
+</head>
+
+<body>
+    <h1>micro:bit USB speed test</h1>
+    <p class="note" style="text-align: center; margin-top: -10px">Page version <span id="pageVersion"></span></p>
+    <section id="simple">
+        <ol class="steps">
+            <li>Plug a micro:bit into this computer with a USB cable.<span id="macNote" style="display: none"> On a Mac, then eject the MICROBIT drive in Finder before you continue (the test cannot run while macOS is writing to it).</span></li>
+            <li>Click <strong>Run test</strong> and choose <strong>BBC micro:bit CMSIS-DAP</strong> in the popup.</li>
+            <li id="stepContinue">When the page asks, click <strong>Continue</strong> and choose the micro:bit once more. The test is not finished until then.</li>
+            <li>Copy or download the report and send it back. The micro:bit ends up running a small test program; any MakeCode download replaces it.</li>
+        </ol>
+        <div class="row">
+            <button id="simpleRunBtn" class="primary">Run test</button>
+            <button id="simpleContinueBtn" class="primary" style="display: none">Continue</button>
+            <span id="simpleStatus" class="note">Not started. The test takes two to four minutes and flashes the micro:bit a few times.</span>
+        </div>
+        <div id="simpleResult"></div>
+        <label>Anything about your setup, such as the computer model or a USB hub or adapter in use (optional)
+            <input id="simpleNotes" type="text" placeholder="e.g. Surface Pro 12, micro:bit on a USB-C to USB-A adapter">
+        </label>
+        <div class="row">
+            <button id="simpleCopyBtn" disabled>Copy report</button>
+            <button id="simpleDownloadBtn" disabled>Download report</button>
+        </div>
+    </section>
+
+    <details id="advanced">
+        <summary>Advanced options</summary>
+    <p class="intro">
+        Times every USB transfer dapjs makes to a DAPLink board (BBC micro:bit V1 or V2) and lets the
+        same board be driven over WebUSB bulk endpoints, WebUSB control transfers on endpoint 0, or WebHID
+        interrupt endpoints. Results stay in the page: keep DevTools <strong>closed</strong> while timing, then
+        download or copy them. Nothing is sent anywhere.
+    </p>
+
+    <section>
+        <h2>Environment</h2>
+        <pre id="envText">Reading...</pre>
+    </section>
+
+    <section>
+        <h2>Test everything</h2>
+        <div class="row">
+            <button id="testAllBtn" class="primary">Test all</button>
+            <button id="continueHidBtn" style="display: none">Continue with WebHID</button>
+            <label><input id="matrixFlash" type="checkbox" checked> Include a flash of the loaded file in each mode</label>
+            <span id="matrixFile" class="note">No file loaded, flashes will be skipped.</span>
+        </div>
+        <p class="note">
+            Runs the micro-benchmarks, and the flash if a file is loaded, over every transport the board
+            offers: WebUSB as dapjs would use it, WebUSB control transfers where that differs, then WebHID.
+            A browser can only open one device chooser per click, so the first WebHID run asks for one more
+            click. Load a hex in the Flash section first if you want flash timings included.
+        </p>
+    </section>
+
+    <section>
+        <h2>Device</h2>
+        <div class="row">
+            <label>Transport
+                <select id="mode">
+                    <option value="auto">WebUSB, dapjs default: endpoints when the vendor interface has them, otherwise control transfers</option>
+                    <option value="control">WebUSB, control transfers (SET_REPORT/GET_REPORT on the zero-endpoint WebUSB interface, the V1 path)</option>
+                    <option value="hid">WebHID, interrupt endpoints on the CMSIS-DAP HID interface (Windows HID stack instead of WinUSB)</option>
+                    <option value="fake">Simulated device, no USB (measures the page's own overhead only)</option>
+                </select>
+            </label>
+        </div>
+        <div class="row">
+            <label>Interface override <input id="ifaceOverride" type="number" min="0" max="31" style="width: 60px" placeholder="auto"></label>
+            <label><input id="pad" type="checkbox"> Pad every packet to 64 bytes (dapjs sends short packets; WebHID always pads)</label>
+            <label><input id="reuse" type="checkbox"> Reuse a device this page was already allowed to use, without the chooser</label>
+        </div>
+        <div class="row">
+            <button id="connectBtn" class="primary">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+            <span id="deviceState" class="note">No device</span>
+        </div>
+        <pre id="deviceText">Pick a transport and connect. The board does not need a program on it; nothing is flashed until you ask.</pre>
+        <p class="note">
+            If claiming the interface fails on Windows, chrome://device-log says which driver is bound to it
+            (WinUSB is needed). A V2 in control-transfer mode uses its zero-endpoint WebUSB interface, the same
+            one a V1 uses, because the firmware only answers SET_REPORT/GET_REPORT on that interface number.
+        </p>
+    </section>
+
+    <section>
+        <h2>Transfer micro-benchmarks (no flashing, no SWD)</h2>
+        <div class="row">
+            <label>Iterations <input id="iterations" type="number" min="1" max="100000" value="200" style="width: 80px"></label>
+            <label>Gap between round trips (ms) <input id="gap" type="number" min="0" max="5000" value="0" style="width: 70px"></label>
+            <label>Delay sweep iterations per step <input id="sweepIterations" type="number" min="1" max="1000" value="20" style="width: 60px"></label>
+        </div>
+        <div class="row">
+            <button class="bench" data-test="roundtrip" title="Write DAP_Info(packet size), read the reply. The firmware does almost no work.">Round trip: DAP_Info</button>
+            <button class="bench" data-test="outonly" title="Write DAP_TransferAbort, which the HID request handler acknowledges without queueing a reply. Pure OUT cost. Not available on bulk endpoints, where the firmware would queue an error reply for each one.">OUT only: DAP_TransferAbort</button>
+            <button class="bench" data-test="inonly" title="GET_REPORT with nothing pending returns the previous reply buffer at once. Pure control IN cost. Control transfers only.">IN only: GET_REPORT, nothing pending</button>
+            <button class="bench" data-test="getstatus" title="Standard GET_STATUS to the device, 2 bytes. Answered by the firmware USB stack, no DAP involvement. WebUSB only.">Control IN: GET_STATUS device</button>
+            <button class="bench" data-test="getstatusif" title="Standard GET_STATUS to the claimed interface, 2 bytes. WebUSB only.">Control IN: GET_STATUS interface</button>
+            <button class="bench" data-test="getdesc" title="Standard GET_DESCRIPTOR for the 18-byte device descriptor. WebUSB only.">Control IN: GET_DESCRIPTOR device</button>
+            <button class="bench" data-test="delay" title="DAP_Delay makes the firmware busy-wait inside the command handler. With control transfers the OUT status stage is held back for that long; with bulk or interrupt endpoints the IN reply is. Shows how the host copes with a device that is busy. A delay of 0 is never sent: it wedges CMSIS-DAP firmware for minutes.">DAP_Delay sweep 1 to 50 ms</button>
+            <button class="bench" data-test="all" title="Runs every applicable micro-benchmark in sequence.">Run all applicable</button>
+        </div>
+        <p class="note">
+            With control transfers the firmware runs the DAP command inside the SET_REPORT handler, before it
+            answers the status stage, so OUT time includes command execution and IN time does not. With bulk or
+            interrupt endpoints the OUT completes as soon as the packet is received and the IN waits for the reply.
+        </p>
+    </section>
+
+    <section>
+        <h2>Flash</h2>
+        <div id="drop">
+            <input id="file" type="file" />
+            <label id="label" for="file"><strong>Choose a hex or bin file</strong> <span>or drag it here</span></label>
+        </div>
+        <div class="row">
+            <label>Or fetch it from this server <input id="fileUrl" type="text" value="../../binaries/MICROBIT.hex" style="width: 300px"></label>
+            <button id="loadUrlBtn">Load URL</button>
+        </div>
+        <div class="row">
+            <label>Page size (bytes per WRITE packet)
+                <select id="pageSize">
+                    <option value="62">62 (dapjs default)</option>
+                    <option value="30">30 (twice the transfers)</option>
+                    <option value="14">14 (four times the transfers)</option>
+                </select>
+            </label>
+            <label>Only the first <input id="limitPages" type="number" min="0" value="0" style="width: 80px"> pages (0 = whole file)</label>
+            <label>Delay before each read (ms, also applies to the micro-benchmarks) <input id="delayRead" type="number" min="0" max="1000" value="0" style="width: 60px"></label>
+        </div>
+        <div class="row">
+            <button id="flashBtn" class="primary" disabled>Flash</button>
+            <button id="stopBtn" class="danger" disabled>Stop</button>
+            <span id="live"></span>
+        </div>
+        <div id="status"><div id="bar"></div><div id="transfer"></div></div>
+        <p class="note">
+            A page limit leaves the target with a partial program, which is fine for timing, and the CLOSE
+            command may then report an error even though every per-page timing is valid. After a Stop the
+            board may need unplugging before it accepts another flash. The same hex file should be used for every
+            machine you compare; the summary records its size and page count.
+        </p>
+    </section>
+
+    <section>
+        <h2>Results</h2>
+        <div id="summary"></div>
+        <textarea id="log" readonly placeholder="Run summaries accumulate here. Download JSON for the raw per-transfer timings."></textarea>
+        <div class="row">
+            <button id="downloadBtn">Download JSON</button>
+            <button id="copyBtn">Copy log</button>
+            <button id="clearBtn">Clear</button>
+            <label><input id="verbose" type="checkbox"> Verbose console (one line per transfer in DevTools; slows the page)</label>
+        </div>
+    </section>
+
+    </details>
+
+    <script type="text/javascript" src="../../dist/dap.umd.js"></script>
+
+    <script>
+        'use strict';
+
+        // Bump when the tests or the report format change, so reports from different versions are not compared blindly.
+        const PAGE_VERSION = '1.0';
+
+        // dapjs builds its enums as const enums, so the values are repeated here.
+        const DAP_VENDOR_ID = 0x0D28;
+        const PACKET_SIZE = 64;
+        const CMD = { INFO: 0x00, CONNECT: 0x02, TRANSFER_ABORT: 0x07, DELAY: 0x09, FLASH_WRITE: 0x8C };
+        const DAP_INFO = { VENDOR: 0x01, PRODUCT: 0x02, SERIAL: 0x03, FW_VERSION: 0x04, BOARD_VENDOR: 0x07, BOARD_NAME: 0x08, PRODUCT_FW_VERSION: 0x09, CAPABILITIES: 0xF0, PACKET_COUNT: 0xFE, PACKET_SIZE: 0xFF };
+        const GET_REPORT = 0x01, SET_REPORT = 0x09, IN_REPORT = 0x100, OUT_REPORT = 0x200;
+        // The first four characters of a DAPLink serial are the board ID.
+        const BOARD_IDS = { 9900: 'micro:bit V1', 9901: 'micro:bit V1', 9903: 'micro:bit V2', 9904: 'micro:bit V2', 9905: 'micro:bit V2', 9906: 'micro:bit V2' };
+        // Same MakeCode program for both boards, padded to the same byte count so every flash is 12,340 commands.
+        const TEST_IMAGES = { 'micro:bit V1': '../../binaries/microbit-v1-test.hex', 'micro:bit V2': '../../binaries/microbit-v2-test.hex' };
+        const BUCKETS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, Infinity];
+        // Never 0: CMSIS-DAP's PIN_DELAY_SLOW underflows a zero count and spins for minutes inside the request handler.
+        const SWEEP_DELAYS_US = [1000, 2000, 5000, 10000, 20000, 50000];
+
+        const $ = id => document.getElementById(id);
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const hex = (n, w = 2) => n.toString(16).padStart(w, '0');
+        const fmt = (n, d = 2) => Number.isFinite(n) ? n.toFixed(d) : '-';
+        const toBytes = data => ArrayBuffer.isView(data)
+            ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+            : new Uint8Array(data);
+
+        // The dist build logs two lines per command; swallow them unless asked for, so DevTools does not skew timings.
+        const nativeLog = console.log.bind(console);
+        let suppressed = 0;
+        console.log = (...args) => {
+            if (!$('verbose').checked && typeof args[0] === 'string' && /^\[(WebUSB|DAPdbg|ADI|USB|HID|bench)\]/.test(args[0])) {
+                suppressed++;
+                return;
+            }
+            nativeLog(...args);
+        };
+        const debug = (...args) => console.log('[bench]', ...args);
+
+        // ---------- statistics ----------
+
+        const percentile = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.round((sorted.length - 1) * p))];
+
+        function stats(samples) {
+            if (!samples.length) return null;
+            const sorted = Float64Array.from(samples).sort();
+            let sum = 0, over50 = 0;
+            for (const v of samples) { sum += v; if (v > 50) over50++; }
+            return {
+                n: samples.length, min: sorted[0], p50: percentile(sorted, 0.5), p90: percentile(sorted, 0.9),
+                p99: percentile(sorted, 0.99), max: sorted[sorted.length - 1], mean: sum / samples.length, sum, over50
+            };
+        }
+
+        function histogram(samples) {
+            const counts = new Array(BUCKETS.length).fill(0);
+            for (const v of samples) { let i = 0; while (v >= BUCKETS[i]) i++; counts[i]++; }
+            return counts;
+        }
+
+        const bucketLabel = i => i === 0 ? `<${BUCKETS[0]}` : i === BUCKETS.length - 1 ? `>=${BUCKETS[i - 1]}` : `${BUCKETS[i - 1]}-${BUCKETS[i]}`;
+
+        // ---------- transports (page-local so the interface and transfer type are explicit) ----------
+
+        function padPacket(data, pad) {
+            const bytes = toBytes(data);
+            const length = pad ? PACKET_SIZE : Math.min(bytes.length, PACKET_SIZE);
+            const out = new Uint8Array(length);
+            out.set(bytes.subarray(0, length));
+            return out;
+        }
+
+        class PageWebUSB {
+            constructor(device, interfaceNumber, useEndpoints, pad) {
+                this.device = device;
+                this.interfaceNumber = interfaceNumber;
+                this.useEndpoints = useEndpoints;
+                this.pad = pad;
+                this.packetSize = PACKET_SIZE;
+                this.opened = false;
+            }
+
+            get description() {
+                return this.useEndpoints
+                    ? `WebUSB ${this.endpointIn ? this.endpointIn.type : 'bulk'} endpoints on interface ${this.interfaceNumber}`
+                    : `WebUSB control transfers on interface ${this.interfaceNumber}`;
+            }
+
+            async open() {
+                if (this.opened) return;
+                await this.device.open();
+                if (!this.device.configuration || this.device.configuration.configurationValue !== 1) {
+                    await this.device.selectConfiguration(1);
+                }
+                const iface = this.device.configuration.interfaces.find(i => i.interfaceNumber === this.interfaceNumber);
+                if (!iface) throw new Error(`Interface ${this.interfaceNumber} not found`);
+                this.endpointIn = this.endpointOut = undefined;
+                if (this.useEndpoints) {
+                    for (const ep of iface.alternates[0].endpoints) {
+                        if (ep.direction === 'in' && !this.endpointIn) this.endpointIn = ep;
+                        else if (ep.direction === 'out' && !this.endpointOut) this.endpointOut = ep;
+                    }
+                    if (!this.endpointIn || !this.endpointOut) throw new Error(`Interface ${this.interfaceNumber} has no IN and OUT endpoint pair`);
+                }
+                await this.device.claimInterface(this.interfaceNumber);
+                this.opened = true;
+            }
+
+            async close() {
+                if (!this.opened) return;
+                this.opened = false;
+                try { await this.device.releaseInterface(this.interfaceNumber); } catch (e) { /* closing anyway */ }
+                await this.device.close();
+            }
+
+            async read() {
+                const result = this.endpointIn
+                    ? await this.device.transferIn(this.endpointIn.endpointNumber, PACKET_SIZE)
+                    : await this.device.controlTransferIn({ requestType: 'class', recipient: 'interface', request: GET_REPORT, value: IN_REPORT, index: this.interfaceNumber }, PACKET_SIZE);
+                if (result.status !== 'ok') throw new Error(`IN transfer status "${result.status}"`);
+                return result.data;
+            }
+
+            async write(data) {
+                const packet = padPacket(data, this.pad);
+                const result = this.endpointOut
+                    ? await this.device.transferOut(this.endpointOut.endpointNumber, packet)
+                    : await this.device.controlTransferOut({ requestType: 'class', recipient: 'interface', request: SET_REPORT, value: OUT_REPORT, index: this.interfaceNumber }, packet);
+                if (result.status !== 'ok') throw new Error(`OUT transfer status "${result.status}"`);
+            }
+        }
+
+        class PageWebHID {
+            constructor(device) {
+                this.device = device;
+                this.packetSize = PACKET_SIZE;
+                this.opened = false;
+                this.queue = [];
+                this.waiters = [];
+                this.onReport = event => this.push(event.data);
+            }
+
+            get description() { return 'WebHID interrupt endpoints'; }
+
+            push(data) {
+                const copy = new Uint8Array(PACKET_SIZE);
+                copy.set(new Uint8Array(data.buffer, data.byteOffset, Math.min(PACKET_SIZE, data.byteLength)));
+                const view = new DataView(copy.buffer);
+                const waiter = this.waiters.shift();
+                if (waiter) waiter.resolve(view); else this.queue.push(view);
+            }
+
+            async open() {
+                if (this.opened) return;
+                if (!this.device.opened) await this.device.open();
+                this.device.addEventListener('inputreport', this.onReport);
+                this.opened = true;
+                // A reply left on the interrupt endpoint by an earlier session would be read as the next response.
+                await sleep(100);
+                this.queue.length = 0;
+            }
+
+            async close() {
+                if (!this.opened) return;
+                this.opened = false;
+                this.device.removeEventListener('inputreport', this.onReport);
+                for (const waiter of this.waiters.splice(0)) waiter.reject(new Error('Device closed'));
+                await this.device.close();
+            }
+
+            read() {
+                if (this.queue.length) return Promise.resolve(this.queue.shift());
+                return new Promise((resolve, reject) => {
+                    const waiter = { resolve, reject };
+                    const timer = setTimeout(() => {
+                        this.waiters = this.waiters.filter(w => w !== waiter);
+                        reject(new Error('No input report within 10 s'));
+                    }, 10000);
+                    waiter.resolve = view => { clearTimeout(timer); resolve(view); };
+                    waiter.reject = error => { clearTimeout(timer); reject(error); };
+                    this.waiters.push(waiter);
+                });
+            }
+
+            async write(data) {
+                await this.device.sendReport(0, padPacket(data, true));
+            }
+        }
+
+        // Replies like a DAPLink would, without USB, so the bench itself can be checked anywhere.
+        class FakeTransport {
+            constructor() { this.packetSize = PACKET_SIZE; this.pending = null; }
+            get description() { return 'simulated device'; }
+            async open() { }
+            async close() { }
+            async write(data) {
+                const req = toBytes(data);
+                const reply = new Uint8Array(PACKET_SIZE);
+                reply[0] = req[0];
+                if (req[0] === CMD.INFO) {
+                    const text = { 0x01: 'Fake', 0x02: 'Fake CMSIS-DAP', 0x03: '0000', 0x04: '1.0' }[req[1]];
+                    if (text) { reply[1] = text.length + 1; for (let i = 0; i < text.length; i++) reply[2 + i] = text.charCodeAt(i); }
+                    else if (req[1] === DAP_INFO.PACKET_SIZE) { reply[1] = 2; reply[2] = PACKET_SIZE; }
+                    else if (req[1] < DAP_INFO.CAPABILITIES) { reply[1] = 0; }
+                    else { reply[1] = 1; reply[2] = req[1] === DAP_INFO.PACKET_COUNT ? 5 : 1; }
+                } else if (req[0] === CMD.CONNECT) {
+                    reply[1] = 1;
+                } else if (req[0] === CMD.DELAY) {
+                    await sleep((req[1] | (req[2] << 8)) / 1000);
+                }
+                if (req[0] !== CMD.TRANSFER_ABORT) this.pending = new DataView(reply.buffer);
+            }
+            async read() {
+                await sleep(0);
+                const reply = this.pending || new DataView(new ArrayBuffer(PACKET_SIZE));
+                return reply;
+            }
+        }
+
+        // Wraps any transport, records the duration of every transfer and supports stopping and spacing.
+        class TimedTransport {
+            constructor(inner) {
+                this.inner = inner;
+                this.packetSize = inner.packetSize;
+                this.delayBeforeRead = 0;
+                this.reset();
+            }
+
+            reset() {
+                this.events = [];
+                this.lastCmd = -1;
+                this.mismatches = 0;
+                this.aborted = false;
+                this.t0 = performance.now();
+            }
+
+            abort() { this.aborted = true; }
+            open() { return this.inner.open(); }
+            close() { return this.inner.close(); }
+
+            async write(data) {
+                if (this.aborted) throw new Error('Stopped');
+                const cmd = toBytes(data)[0];
+                const t = performance.now();
+                await this.inner.write(data);
+                const ms = performance.now() - t;
+                this.lastCmd = cmd;
+                this.events.push({ t: t - this.t0, dir: 'out', cmd, ms });
+                debug(`out 0x${hex(cmd)} ${ms.toFixed(2)} ms`);
+            }
+
+            async read() {
+                if (this.aborted) throw new Error('Stopped');
+                if (this.delayBeforeRead) await sleep(this.delayBeforeRead);
+                const t = performance.now();
+                const view = await this.inner.read();
+                const ms = performance.now() - t;
+                const cmd = view.byteLength ? view.getUint8(0) : -1;
+                if (cmd !== this.lastCmd) this.mismatches++;
+                this.events.push({ t: t - this.t0, dir: 'in', cmd, ms });
+                debug(`in  0x${hex(cmd)} ${ms.toFixed(2)} ms`);
+                return view;
+            }
+        }
+
+        // ---------- page state ----------
+
+        const runs = [];
+        let matrixId = null;
+        let lastMatrix = [];
+        let lastBoard = '';
+        let env = {};
+        let deviceInfo = null;
+        let usbDevice = null;
+        let transport = null;
+        let fileBuffer = null;
+        let fileName = '';
+        let busy = false;
+
+        const modeEl = $('mode'), deviceTextEl = $('deviceText'), deviceStateEl = $('deviceState');
+        const liveEl = $('live'), statusEl = $('status'), barEl = $('bar'), transferEl = $('transfer');
+        const logEl = $('log'), summaryEl = $('summary');
+
+        async function describeEnvironment() {
+            env = {
+                userAgent: navigator.userAgent,
+                cores: navigator.hardwareConcurrency,
+                webusb: !!navigator.usb, webhid: !!navigator.hid, secureContext: window.isSecureContext,
+                dapjs: typeof DAPjs !== 'undefined'
+            };
+            if (navigator.userAgentData) {
+                try {
+                    const h = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'platformVersion', 'fullVersionList', 'model']);
+                    env.platform = `${h.platform} ${h.platformVersion}`;
+                    env.architecture = `${h.architecture}${h.bitness}`;
+                    env.browser = (h.fullVersionList || []).map(b => `${b.brand} ${b.version}`).join(', ');
+                } catch (error) { env.uaDataError = String(error); }
+            }
+            env.pageVersion = PAGE_VERSION;
+            $('envText').textContent = [
+                `micro:bit USB speed test, page version ${PAGE_VERSION}`,
+                env.userAgent,
+                env.platform ? `Platform ${env.platform}, architecture ${env.architecture}` : 'navigator.userAgentData not available',
+                env.browser ? `Browser ${env.browser}` : '',
+                `${env.cores} cores, WebUSB ${env.webusb ? 'yes' : 'NO'}, WebHID ${env.webhid ? 'yes' : 'NO'}, secure context ${env.secureContext ? 'yes' : 'NO'}, dapjs ${env.dapjs ? 'loaded' : 'MISSING (run npm run build)'}`
+            ].filter(Boolean).join('\n');
+        }
+
+        function describeUsbDevice(device) {
+            const lines = [`${device.productName || 'Unknown product'} (vid 0x${hex(device.vendorId, 4)}, pid 0x${hex(device.productId, 4)}), serial ${device.serialNumber || '?'}, USB ${device.usbVersionMajor}.${device.usbVersionMinor}, device version ${device.deviceVersionMajor}.${device.deviceVersionMinor}`];
+            const interfaces = [];
+            for (const config of device.configurations) {
+                lines.push(`Configuration ${config.configurationValue}${config.configurationName ? ` "${config.configurationName}"` : ''}:`);
+                for (const iface of config.interfaces) {
+                    const alt = iface.alternates[0];
+                    const endpoints = alt.endpoints.map(ep => `${ep.direction} ${ep.type} ep${ep.endpointNumber} ${ep.packetSize} B`);
+                    lines.push(`  interface ${iface.interfaceNumber}: class 0x${hex(alt.interfaceClass)} subclass 0x${hex(alt.interfaceSubclass)} protocol 0x${hex(alt.interfaceProtocol)}${alt.interfaceName ? ` "${alt.interfaceName}"` : ''}, ${endpoints.length ? endpoints.join(', ') : 'no endpoints'}`);
+                    if (config.configurationValue === 1) {
+                        interfaces.push({ number: iface.interfaceNumber, class: alt.interfaceClass, subclass: alt.interfaceSubclass, protocol: alt.interfaceProtocol, name: alt.interfaceName, endpoints });
+                    }
+                }
+            }
+            return { lines, interfaces };
+        }
+
+        function chooseInterface(device, mode) {
+            const override = $('ifaceOverride').value;
+            const config = device.configurations.find(c => c.configurationValue === 1) || device.configurations[0];
+            const vendor = config.interfaces.filter(i => i.alternates[0].interfaceClass === 0xFF);
+            const hasEndpoints = iface => iface.alternates[0].endpoints.length > 0;
+            let iface, warning = '';
+            if (override !== '') {
+                iface = config.interfaces.find(i => i.interfaceNumber === Number(override));
+                if (!iface) throw new Error(`Interface ${override} does not exist`);
+            } else if (mode === 'auto') {
+                iface = vendor.find(hasEndpoints) || vendor[0];
+            } else {
+                // The firmware only answers HID class requests on the HID and WebUSB interface numbers, never on the bulk one.
+                iface = vendor.find(i => !hasEndpoints(i)) || vendor[0];
+                if (iface && hasEndpoints(iface)) warning = 'No zero-endpoint vendor interface found; class requests on this interface may stall.';
+            }
+            if (!iface) throw new Error('No vendor-specific (class 0xFF) interface found');
+            const useEndpoints = mode === 'auto' && hasEndpoints(iface);
+            return { interfaceNumber: iface.interfaceNumber, useEndpoints, warning };
+        }
+
+        function describeBoard(serial) {
+            const id = (serial || '').slice(0, 4);
+            if (!id) return { board: 'unknown board (no serial reported)', id: '' };
+            return { board: BOARD_IDS[id] || 'unknown board', id };
+        }
+
+        // Old DAPLink answers DAP_Info with the CMSIS-DAP protocol version; newer builds answer with their own version.
+        function describeFirmware(dap) {
+            if (!dap) return 'firmware version not reported';
+            if (dap.productFwVersion) return `DAPLink ${dap.productFwVersion} (CMSIS-DAP ${dap.fwVersion})`;
+            if (/^\d{4}$/.test(String(dap.fwVersion))) return `DAPLink ${dap.fwVersion}`;
+            return `CMSIS-DAP protocol ${dap.fwVersion || '?'}, DAPLink version not reported by this firmware`;
+        }
+
+        async function dapInfo(request) {
+            await transport.write(new Uint8Array([CMD.INFO, request]));
+            const view = await transport.read();
+            const length = view.getUint8(1);
+            if (length === 0) return '';
+            if (request >= DAP_INFO.CAPABILITIES) {
+                if (length === 1) return view.getUint8(2);
+                if (length === 2) return view.getUint16(2, true);
+                return view.getUint32(2, true);
+            }
+            let text = '';
+            for (let i = 0; i < length && 2 + i < view.byteLength; i++) {
+                const c = view.getUint8(2 + i);
+                if (c) text += String.fromCharCode(c);
+            }
+            return text;
+        }
+
+        async function connect(mode = modeEl.value, { reuse = $('reuse').checked, device = null } = {}) {
+            modeEl.value = mode;
+            const pad = $('pad').checked;
+            let inner;
+            deviceInfo = { mode, pad, lines: [], interfaces: [] };
+            if (mode === 'fake') {
+                inner = new FakeTransport();
+                deviceInfo.lines.push('Simulated device: replies instantly, no USB traffic.');
+            } else if (mode === 'hid') {
+                if (!navigator.hid) throw new Error('WebHID is not available in this browser');
+                let devices = reuse ? (await navigator.hid.getDevices()).filter(d => d.vendorId === DAP_VENDOR_ID) : [];
+                if (devices.length !== 1) devices = await navigator.hid.requestDevice({ filters: [{ vendorId: DAP_VENDOR_ID }] });
+                if (!devices.length) throw new Error('No HID device selected');
+                const device = devices[0];
+                inner = new PageWebHID(device);
+                deviceInfo.lines.push(`${device.productName || 'Unknown product'} (vid 0x${hex(device.vendorId, 4)}, pid 0x${hex(device.productId, 4)})`);
+                for (const c of device.collections) {
+                    const size = reports => reports.map(r => r.items.reduce((n, item) => n + item.reportSize * item.reportCount, 0) / 8).join('/');
+                    deviceInfo.lines.push(`  collection usage page 0x${hex(c.usagePage, 4)} usage 0x${hex(c.usage, 4)}: input ${size(c.inputReports)} B, output ${size(c.outputReports)} B, feature ${size(c.featureReports)} B`);
+                }
+            } else {
+                if (!navigator.usb) throw new Error('WebUSB is not available in this browser');
+                const granted = reuse ? (await navigator.usb.getDevices()).filter(d => d.vendorId === DAP_VENDOR_ID) : [];
+                usbDevice = device || (granted.length === 1 ? granted[0] : await navigator.usb.requestDevice({ filters: [{ vendorId: DAP_VENDOR_ID }] }));
+                const described = describeUsbDevice(usbDevice);
+                deviceInfo.lines = described.lines;
+                deviceInfo.interfaces = described.interfaces;
+                const choice = chooseInterface(usbDevice, mode);
+                deviceInfo.interfaceNumber = choice.interfaceNumber;
+                deviceInfo.useEndpoints = choice.useEndpoints;
+                if (choice.warning) deviceInfo.lines.push(`Warning: ${choice.warning}`);
+                inner = new PageWebUSB(usbDevice, choice.interfaceNumber, choice.useEndpoints, pad);
+            }
+            transport = new TimedTransport(inner);
+            await transport.open();
+            deviceInfo.transport = inner.description;
+            deviceInfo.lines.push(`Using: ${inner.description}${pad ? ', packets padded to 64 bytes' : ''}`);
+            try {
+                deviceInfo.dap = {
+                    vendor: await dapInfo(DAP_INFO.VENDOR), product: await dapInfo(DAP_INFO.PRODUCT), serial: await dapInfo(DAP_INFO.SERIAL),
+                    fwVersion: await dapInfo(DAP_INFO.FW_VERSION), boardVendor: await dapInfo(DAP_INFO.BOARD_VENDOR), boardName: await dapInfo(DAP_INFO.BOARD_NAME),
+                    productFwVersion: await dapInfo(DAP_INFO.PRODUCT_FW_VERSION), capabilities: await dapInfo(DAP_INFO.CAPABILITIES),
+                    packetCount: await dapInfo(DAP_INFO.PACKET_COUNT), packetSize: await dapInfo(DAP_INFO.PACKET_SIZE)
+                };
+                const d = deviceInfo.dap;
+                deviceInfo.lines.push(`DAP_Info: vendor "${d.vendor}", product "${d.product}", serial "${d.serial}", CMSIS-DAP ${d.fwVersion}, board vendor "${d.boardVendor}", board name "${d.boardName}", product firmware "${d.productFwVersion}", capabilities 0x${hex(Number(d.capabilities))}, packet count ${d.packetCount}, packet size ${d.packetSize}`);
+                deviceInfo.lines.push(`Those ${transport.events.length} transfers took ${fmt(transport.events.reduce((a, e) => a + e.ms, 0), 1)} ms in total.`);
+            } catch (error) {
+                deviceInfo.lines.push(`DAP_Info failed: ${error.message || error}`);
+            }
+            const serial = mode === 'hid' || mode === 'fake' ? (deviceInfo.dap ? deviceInfo.dap.serial : '') : usbDevice.serialNumber;
+            const { board, id } = describeBoard(serial);
+            deviceInfo.board = board;
+            deviceInfo.boardId = id;
+            deviceInfo.firmware = describeFirmware(deviceInfo.dap);
+            deviceInfo.lines.push(`Board: ${board}${id ? ` (board ID ${id})` : ''}; ${deviceInfo.firmware}.`);
+            deviceTextEl.textContent = deviceInfo.lines.join('\n');
+            deviceStateEl.textContent = `Connected: ${inner.description}`;
+            updateButtons();
+        }
+
+        async function disconnect() {
+            if (transport) {
+                try { await transport.close(); } catch (error) { debug('close failed', error); }
+            }
+            transport = null;
+            deviceStateEl.textContent = 'No device';
+            updateButtons();
+        }
+
+        function updateButtons() {
+            const connected = !!transport;
+            const mode = deviceInfo ? deviceInfo.mode : '';
+            const control = connected && (mode === 'control' || (mode === 'auto' && !deviceInfo.useEndpoints));
+            const webusb = connected && (mode === 'control' || mode === 'auto');
+            $('connectBtn').disabled = busy;
+            $('testAllBtn').disabled = busy;
+            $('simpleRunBtn').disabled = busy;
+            $('disconnectBtn').disabled = busy || !connected;
+            for (const button of document.querySelectorAll('button.bench')) {
+                const test = button.dataset.test;
+                let enabled = connected && !busy;
+                if (test === 'inonly') enabled = enabled && (control || mode === 'fake');
+                if (test === 'outonly') enabled = enabled && (mode !== 'auto' || !deviceInfo.useEndpoints);
+                if (test === 'getstatus' || test === 'getstatusif' || test === 'getdesc') enabled = enabled && webusb;
+                button.disabled = !enabled;
+            }
+            $('flashBtn').disabled = busy || !connected || !fileBuffer;
+            $('stopBtn').disabled = !busy;
+        }
+
+        // ---------- runs and reporting ----------
+
+        function pairRoundTrips(events) {
+            const rt = [];
+            for (let i = 0; i + 1 < events.length; i++) {
+                if (events[i].dir === 'out' && events[i + 1].dir === 'in') rt.push(events[i].ms + events[i + 1].ms);
+            }
+            return rt;
+        }
+
+        function statsLine(label, s) {
+            if (!s) return `${label.padEnd(4)} no samples`;
+            return `${label.padEnd(4)} n=${s.n} min ${fmt(s.min)} p50 ${fmt(s.p50)} p90 ${fmt(s.p90)} p99 ${fmt(s.p99)} max ${fmt(s.max)} mean ${fmt(s.mean)} ms, sum ${fmt(s.sum / 1000, 2)} s, over 50 ms: ${s.over50}`;
+        }
+
+        function histLine(label, counts) {
+            return `${label.padEnd(4)} ` + counts.map((c, i) => `${bucketLabel(i)}:${c}`).join(' ');
+        }
+
+        function finishRun(name, params, events, extra = {}) {
+            const out = events.filter(e => e.dir === 'out').map(e => e.ms);
+            const inn = events.filter(e => e.dir === 'in').map(e => e.ms);
+            const rt = pairRoundTrips(events);
+            const run = {
+                name, startedAt: new Date().toISOString(), transport: deviceInfo ? deviceInfo.transport : 'none',
+                mode: deviceInfo ? deviceInfo.mode : 'none', interfaceNumber: deviceInfo ? deviceInfo.interfaceNumber : null,
+                params, ...extra, matrix: matrixId,
+                out: stats(out), in: stats(inn), roundTrip: stats(rt),
+                histogramOut: histogram(out), histogramIn: histogram(inn),
+                mismatches: transport ? transport.mismatches : 0, events
+            };
+            runs.push(run);
+            const lines = [
+                `== ${name} | ${run.transport} | ${run.startedAt}`,
+                `   ${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ')}`
+            ];
+            if (extra.error) lines.push(`   ERROR: ${extra.error}`);
+            if (extra.notes) lines.push(`   ${extra.notes}`);
+            if (run.out) lines.push(`   ${statsLine('OUT', run.out)}`);
+            if (run.in) lines.push(`   ${statsLine('IN', run.in)}`);
+            if (run.roundTrip) lines.push(`   ${statsLine('RT', run.roundTrip)}`);
+            if (run.out) lines.push(`   ${histLine('OUT', run.histogramOut)}`);
+            if (run.in) lines.push(`   ${histLine('IN', run.histogramIn)}`);
+            if (run.mismatches) lines.push(`   mismatched replies: ${run.mismatches}`);
+            appendLog(lines.join('\n'));
+            renderSummary(run);
+            return run;
+        }
+
+        function appendLog(text) {
+            logEl.value += (logEl.value ? '\n\n' : '') + text;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function renderSummary(run) {
+            const rows = [['OUT', run.out, run.histogramOut], ['IN', run.in, run.histogramIn], ['Round trip', run.roundTrip, null]];
+            let html = `<p><strong>${run.name}</strong> on ${run.transport}${run.error ? ` <span class="err">failed: ${run.error}</span>` : ''}${run.notes ? ` <span class="note">${run.notes}</span>` : ''}</p>`;
+            html += '<table><tr><th>leg</th><th>n</th><th>min</th><th>p50</th><th>p90</th><th>p99</th><th>max</th><th>mean</th><th>sum</th><th>&gt;50 ms</th></tr>';
+            for (const [label, s] of rows) {
+                if (!s) continue;
+                html += `<tr><td>${label}</td><td>${s.n}</td><td>${fmt(s.min)}</td><td>${fmt(s.p50)}</td><td>${fmt(s.p90)}</td><td>${fmt(s.p99)}</td><td>${fmt(s.max)}</td><td>${fmt(s.mean)}</td><td>${fmt(s.sum / 1000)} s</td><td class="${s.over50 ? 'err' : 'ok'}">${s.over50}</td></tr>`;
+            }
+            html += '</table>';
+            if (run.out || run.in) {
+                html += '<table><tr><th>ms bucket</th>' + BUCKETS.map((b, i) => `<th>${bucketLabel(i)}</th>`).join('') + '</tr>';
+                for (const [label, s, counts] of rows) {
+                    if (!counts) continue;
+                    const max = Math.max(1, ...counts);
+                    html += `<tr><td>${label}</td>` + counts.map(c => `<td><span class="hist" style="width:${Math.round(40 * c / max)}px"></span> ${c}</td>`).join('') + '</tr>';
+                }
+                html += '</table>';
+            }
+            if (run.sweep) {
+                html += '<table><tr><th>DAP_Delay requested</th><th>OUT p50</th><th>OUT minus delay</th><th>IN p50</th><th>IN minus delay</th><th>round trip p50</th><th>max</th></tr>';
+                for (const row of run.sweep) {
+                    const ms = row.us / 1000;
+                    html += `<tr><td>${ms} ms</td><td>${fmt(row.out.p50)}</td><td>${fmt(row.out.p50 - ms)}</td><td>${fmt(row.in.p50)}</td><td>${fmt(row.in.p50 - ms)}</td><td>${fmt(row.roundTrip.p50)}</td><td>${fmt(Math.max(row.out.max, row.in.max))}</td></tr>`;
+                }
+                html += '</table>';
+            }
+            summaryEl.innerHTML = html;
+        }
+
+        async function guarded(work) {
+            if (busy) return;
+            busy = true;
+            updateButtons();
+            try {
+                await work();
+            } catch (error) {
+                appendLog(`ERROR: ${error.message || error}`);
+                liveEl.innerHTML = `<span class="err">${error.message || error}</span>`;
+                nativeLog(error);
+            } finally {
+                busy = false;
+                updateButtons();
+            }
+        }
+
+        // ---------- micro-benchmarks ----------
+
+        const benchmarks = {
+            async roundtrip() {
+                const n = Number($('iterations').value), gap = Number($('gap').value);
+                const request = new Uint8Array([CMD.INFO, DAP_INFO.PACKET_SIZE]);
+                transport.reset();
+                for (let i = 0; i < n; i++) {
+                    if (gap) await sleep(gap);
+                    await transport.write(request);
+                    await transport.read();
+                }
+                finishRun('Round trip: DAP_Info', { iterations: n, gapMs: gap }, transport.events);
+            },
+
+            async outonly() {
+                const n = Number($('iterations').value), gap = Number($('gap').value);
+                const request = new Uint8Array([CMD.TRANSFER_ABORT]);
+                transport.reset();
+                for (let i = 0; i < n; i++) {
+                    if (gap) await sleep(gap);
+                    await transport.write(request);
+                }
+                finishRun('OUT only: DAP_TransferAbort', { iterations: n, gapMs: gap }, transport.events);
+            },
+
+            async inonly() {
+                const n = Number($('iterations').value), gap = Number($('gap').value);
+                transport.reset();
+                for (let i = 0; i < n; i++) {
+                    if (gap) await sleep(gap);
+                    await transport.read();
+                }
+                transport.mismatches = 0;
+                finishRun('IN only: GET_REPORT with nothing pending', { iterations: n, gapMs: gap }, transport.events, { notes: 'Replies are the previous buffer, so command bytes are not checked.' });
+            },
+
+            async getstatus() { await standardRequest('GET_STATUS device', { requestType: 'standard', recipient: 'device', request: 0x00, value: 0, index: 0 }, 2); },
+            async getstatusif() { await standardRequest('GET_STATUS interface', { requestType: 'standard', recipient: 'interface', request: 0x00, value: 0, index: deviceInfo.interfaceNumber }, 2); },
+            async getdesc() { await standardRequest('GET_DESCRIPTOR device', { requestType: 'standard', recipient: 'device', request: 0x06, value: 0x0100, index: 0 }, 18); },
+
+            async delay() {
+                const perStep = Number($('sweepIterations').value);
+                const sweep = [];
+                const all = [];
+                for (const requested of SWEEP_DELAYS_US) {
+                    const us = Math.min(65535, Math.max(1, requested));
+                    const request = new Uint8Array([CMD.DELAY, us & 0xFF, us >> 8]);
+                    transport.reset();
+                    for (let i = 0; i < perStep; i++) {
+                        await transport.write(request);
+                        await transport.read();
+                    }
+                    const events = transport.events;
+                    sweep.push({
+                        us, out: stats(events.filter(e => e.dir === 'out').map(e => e.ms)),
+                        in: stats(events.filter(e => e.dir === 'in').map(e => e.ms)), roundTrip: stats(pairRoundTrips(events))
+                    });
+                    for (const e of events) all.push({ ...e, delayUs: us });
+                    liveEl.textContent = `DAP_Delay ${us / 1000} ms: OUT p50 ${fmt(sweep[sweep.length - 1].out.p50)} ms, IN p50 ${fmt(sweep[sweep.length - 1].in.p50)} ms`;
+                }
+                const run = finishRun('DAP_Delay sweep', { iterationsPerStep: perStep, delaysMs: SWEEP_DELAYS_US.map(us => us / 1000).join('/') }, all, { sweep });
+                appendLog(sweep.map(row => `   delay ${(row.us / 1000).toString().padStart(2)} ms: OUT p50 ${fmt(row.out.p50)} (max ${fmt(row.out.max)}), IN p50 ${fmt(row.in.p50)} (max ${fmt(row.in.max)}), RT p50 ${fmt(row.roundTrip.p50)}`).join('\n'));
+                renderSummary(run);
+            },
+
+            async all() {
+                const mode = deviceInfo.mode;
+                const control = mode === 'control' || (mode === 'auto' && !deviceInfo.useEndpoints);
+                const order = ['roundtrip'];
+                // The bulk OUT handler in DAPLink does not intercept DAP_TransferAbort, so it would queue replies.
+                if (!(mode === 'auto' && deviceInfo.useEndpoints)) order.push('outonly');
+                if (control || mode === 'fake') order.push('inonly');
+                if (mode === 'control' || mode === 'auto') order.push('getstatus', 'getstatusif', 'getdesc');
+                order.push('delay');
+                for (const name of order) {
+                    liveEl.textContent = `Running ${name}...`;
+                    await benchmarks[name]();
+                }
+                liveEl.textContent = 'All micro-benchmarks done.';
+            }
+        };
+
+        async function standardRequest(name, setup, length) {
+            const n = Number($('iterations').value), gap = Number($('gap').value);
+            transport.reset();
+            const events = [];
+            let errors = 0, firstError = '';
+            const t0 = performance.now();
+            for (let i = 0; i < n; i++) {
+                if (gap) await sleep(gap);
+                const t = performance.now();
+                try {
+                    const result = await usbDevice.controlTransferIn(setup, length);
+                    const ms = performance.now() - t;
+                    if (result.status !== 'ok') { errors++; firstError = firstError || `status ${result.status}`; }
+                    events.push({ t: t - t0, dir: 'in', cmd: setup.request, ms });
+                } catch (error) {
+                    errors++;
+                    firstError = firstError || (error.message || String(error));
+                    events.push({ t: t - t0, dir: 'in', cmd: setup.request, ms: performance.now() - t });
+                    if (errors > 5) break;
+                }
+            }
+            finishRun(`Control IN: ${name}`, { iterations: n, gapMs: gap, bytes: length }, events, errors ? { error: `${errors} failed, first: ${firstError}` } : {});
+        }
+
+        // ---------- flash ----------
+
+        function useBuffer(buffer, name) {
+            fileBuffer = buffer;
+            fileName = name;
+            $('label').innerHTML = `<strong>${name}</strong> <span>${buffer.byteLength} bytes</span>`;
+            $('matrixFile').textContent = `Loaded: ${name}, ${buffer.byteLength} bytes.`;
+            updateButtons();
+        }
+
+        function setFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = event => useBuffer(event.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function loadUrl(url) {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+            useBuffer(await response.arrayBuffer(), url.split('/').pop());
+        }
+
+        async function flash() {
+            const pageSize = Number($('pageSize').value);
+            const limit = Number($('limitPages').value);
+            const delayRead = Number($('delayRead').value);
+            const buffer = limit > 0 ? fileBuffer.slice(0, limit * pageSize) : fileBuffer;
+            const pages = Math.ceil(buffer.byteLength / pageSize);
+            transport.reset();
+            transport.delayBeforeRead = delayRead;
+            const target = new DAPjs.DAPLink(transport);
+            target.on(DAPjs.DAPLink.EVENT_PROGRESS, progress => {
+                statusEl.style.display = 'block';
+                barEl.style.width = `${progress * 100}%`;
+                transferEl.textContent = `${Math.ceil(progress * 100)}%`;
+            });
+            const t0 = performance.now();
+            const ticker = setInterval(() => {
+                const done = transport.events.filter(e => e.dir === 'in' && e.cmd === CMD.FLASH_WRITE).length;
+                const elapsed = (performance.now() - t0) / 1000;
+                const perPage = done ? elapsed / done : 0;
+                liveEl.textContent = `page ${done}/${pages}, ${fmt(elapsed, 1)} s elapsed, ${fmt(perPage * 1000, 1)} ms per page, about ${fmt(perPage * (pages - done), 0)} s left`;
+            }, 250);
+            let error = null;
+            try {
+                await target.connect();
+                await target.flash(buffer, pageSize);
+                await target.disconnect();
+            } catch (e) {
+                error = e.message || String(e);
+                try { await transport.close(); } catch (closeError) { debug('close after error failed', closeError); }
+            } finally {
+                clearInterval(ticker);
+                transport.delayBeforeRead = 0;
+            }
+            const totalMs = performance.now() - t0;
+            const written = transport.events.filter(e => e.dir === 'in' && e.cmd === CMD.FLASH_WRITE).length;
+            const transfers = transport.events.length;
+            const busMs = transport.events.reduce((a, e) => a + e.ms, 0);
+            const round = (n, d) => Number(n.toFixed(d));
+            finishRun('Flash', {
+                file: fileName, bytes: buffer.byteLength, pageSize, pages, pagesWritten: written, delayBeforeReadMs: delayRead,
+                totalS: round(totalMs / 1000, 2), msPerPage: round(totalMs / Math.max(1, written), 2), transfers, msPerTransfer: round(totalMs / Math.max(1, transfers), 2),
+                insideTransfersS: round(busMs / 1000, 2), betweenTransfersS: round((totalMs - busMs) / 1000, 2), consoleLinesSuppressedSoFar: suppressed
+            }, transport.events, error ? { error } : {});
+            liveEl.innerHTML = error ? `<span class="err">Flash failed after ${fmt(totalMs / 1000, 1)} s: ${error}</span>` : `<span class="ok">Flashed ${written} pages in ${fmt(totalMs / 1000, 1)} s (${fmt(totalMs / Math.max(1, written), 1)} ms per page)</span>`;
+            statusEl.style.display = 'none';
+            if (error) deviceStateEl.textContent = `Closed after the error; the next test reopens ${deviceInfo.transport}`;
+        }
+
+        // ---------- the whole matrix in one go ----------
+
+        function waitForClick(button) {
+            return new Promise(resolve => {
+                button.style.display = '';
+                button.classList.add('attention');
+                button.onclick = () => { button.style.display = 'none'; button.classList.remove('attention'); button.onclick = null; resolve(); };
+            });
+        }
+
+        const ON_MAC = /Mac/.test(navigator.platform || '');
+        let matrixFlashes = 0;
+
+        async function runModeBenchmarks(includeFlash) {
+            await benchmarks.all();
+            if (includeFlash && !(ON_MAC && matrixFlashes >= 1)) {
+                await flash();
+                matrixFlashes++;
+            }
+        }
+
+        async function testAll({ includeFlash = $('matrixFlash').checked && !!fileBuffer, flashByBoard = false, continueButton = $('continueHidBtn') } = {}) {
+            const reuse = $('reuse').checked;
+            const notes = [];
+            matrixId = new Date().toISOString();
+            matrixFlashes = 0;
+            if (ON_MAC) notes.push('macOS: only the first mode flashes, because DAPLink remounts its drive after a flash and macOS then writes to it, which breaks the next one.');
+            try {
+                await disconnect();
+                await connect('auto', { reuse });
+                const board = usbDevice;
+                lastBoard = `${deviceInfo.board}, ${deviceInfo.firmware}`;
+                notes.push(`Board: ${deviceInfo.board}${deviceInfo.boardId ? ` (board ID ${deviceInfo.boardId})` : ''}; ${deviceInfo.firmware}; product ${board.productName || 'unknown'}; serial ${board.serialNumber || '?'}.`);
+                if (flashByBoard) {
+                    const url = TEST_IMAGES[deviceInfo.board];
+                    if (url) {
+                        liveEl.textContent = 'Fetching the test program...';
+                        await loadUrl(url);
+                        includeFlash = true;
+                    } else {
+                        notes.push('No test program for this board, so nothing was flashed.');
+                        includeFlash = false;
+                    }
+                }
+                await runModeBenchmarks(includeFlash);
+                if (deviceInfo.useEndpoints) {
+                    await disconnect();
+                    await connect('control', { reuse, device: board });
+                    await runModeBenchmarks(includeFlash);
+                } else {
+                    notes.push('Control-transfer mode skipped: the default mode already used control transfers on this board.');
+                }
+                if (!navigator.hid) {
+                    notes.push('WebHID not available in this browser.');
+                } else {
+                    await disconnect();
+                    const granted = (await navigator.hid.getDevices()).filter(d => d.vendorId === DAP_VENDOR_ID);
+                    if (!reuse || granted.length !== 1) {
+                        liveEl.textContent = 'Waiting for you to click Continue and choose the micro:bit again.';
+                        await waitForClick(continueButton);
+                        liveEl.textContent = 'Choose the micro:bit in the popup...';
+                    }
+                    await connect('hid', { reuse });
+                    await runModeBenchmarks(includeFlash);
+                }
+                await disconnect();
+            } finally {
+                lastMatrix = summariseMatrix(matrixId, notes);
+                matrixId = null;
+            }
+        }
+
+        function summariseMatrix(id, notes) {
+            const mine = runs.filter(r => r.matrix === id);
+            const transports = [...new Set(mine.map(r => r.transport))];
+            const rows = transports.map(transport => {
+                const of = name => mine.find(r => r.transport === transport && r.name === name);
+                const rt = of('Round trip: DAP_Info'), status = of('Control IN: GET_STATUS device'), sweep = of('DAP_Delay sweep'), fl = of('Flash');
+                const step = sweep && sweep.sweep ? sweep.sweep.find(row => row.us === 10000) : null;
+                const close = fl ? fl.events.filter(e => e.cmd === 0x8B).reduce((a, e) => a + e.ms, 0) : null;
+                const over50 = fl ? (fl.out.over50 + fl.in.over50) : null;
+                return {
+                    transport,
+                    rtP50: rt ? rt.roundTrip.p50 : NaN, outP50: rt ? rt.out.p50 : NaN, inP50: rt ? rt.in.p50 : NaN,
+                    statusP50: status ? status.in.p50 : NaN,
+                    waitOverhead: step ? Math.max(step.out.p50, step.in.p50) - 10 : NaN,
+                    flashS: fl ? fl.params.totalS : NaN, msPerPage: fl ? fl.params.msPerPage : NaN, closeMs: close, over50,
+                    flashError: fl && fl.error ? fl.error : ''
+                };
+            });
+            const cols = [['transport', 'transport'], ['round trip', 'rtP50'], ['OUT', 'outP50'], ['IN', 'inP50'], ['GET_STATUS', 'statusP50'], ['wait overhead', 'waitOverhead'], ['flash s', 'flashS'], ['ms/page', 'msPerPage'], ['CLOSE ms', 'closeMs'], ['>50 ms', 'over50']];
+            const decimals = { flashS: 1, closeMs: 1, over50: 0 };
+            const cell = (row, key) => key === 'transport' ? row[key] : (row[key] === null || Number.isNaN(row[key]) ? '-' : (typeof row[key] === 'number' ? fmt(row[key], decimals[key] === undefined ? 2 : decimals[key]) : String(row[key])));
+            const lines = [`== Test all summary | ${id}`];
+            for (const row of rows) lines.push(`   ${cols.map(([label, key]) => `${label} ${cell(row, key)}`).join(' | ')}${row.flashError ? ` | flash error: ${row.flashError}` : ''}`);
+            for (const note of notes) lines.push(`   ${note}`);
+            appendLog(lines.join('\n'));
+            let html = `<p><strong>Test all</strong> ${id}. Medians in ms per transfer; wait overhead is the extra time at the 10 ms step of the delay sweep.</p><table><tr>${cols.map(([label]) => `<th>${label}</th>`).join('')}</tr>`;
+            for (const row of rows) html += `<tr>${cols.map(([, key]) => `<td>${cell(row, key)}</td>`).join('')}</tr>`;
+            html += '</table>' + notes.map(n => `<p class="note">${n}</p>`).join('');
+            summaryEl.innerHTML = html;
+            liveEl.textContent = 'Test all finished.';
+            return rows;
+        }
+
+        // ---------- simple view ----------
+
+        const simpleStatusEl = $('simpleStatus'), simpleResultEl = $('simpleResult');
+
+        function reportText() {
+            const notes = $('simpleNotes').value.trim();
+            return [
+                `micro:bit USB speed test report, page version ${PAGE_VERSION}`,
+                `Generated ${new Date().toISOString()} by ${location.href}`,
+                `Tester notes: ${notes || '(none)'}`,
+                `Result: ${simpleResultEl.textContent || '(no result)'}`,
+                '', $('envText').textContent, '', deviceTextEl.textContent, '', logEl.value
+            ].join('\n');
+        }
+
+        function describeMatrix(rows) {
+            const parts = rows.map(r => `${r.transport.replace(/ on interface \d+/, '')}: ${fmt(r.rtP50, 1)} ms per command${Number.isFinite(r.flashS) ? `, flash ${fmt(r.flashS, 0)} s` : ''}`);
+            return parts.length ? `${lastBoard}. ${parts.join('; ')}.` : 'No measurements were recorded.';
+        }
+
+        let simpleRunning = false;
+
+        // Mirrors the run state into the simple view: part being run, or a loud prompt while Continue is pending.
+        function refreshSimpleStatus() {
+            const waiting = $('simpleContinueBtn').style.display !== 'none';
+            $('stepContinue').classList.toggle('current', waiting);
+            if (waiting) {
+                simpleStatusEl.innerHTML = '<span class="warn">Not finished yet: click the Continue button, then choose the micro:bit once more.</span>';
+            } else if (simpleRunning) {
+                const part = deviceInfo && deviceInfo.mode === 'hid' ? 'Part 2 of 2 (WebHID)' : 'Part 1 of 2 (WebUSB)';
+                simpleStatusEl.textContent = `${part}: ${liveEl.textContent}`;
+            }
+        }
+        const simpleMirror = new MutationObserver(refreshSimpleStatus);
+        simpleMirror.observe(liveEl, { childList: true, characterData: true, subtree: true });
+        simpleMirror.observe($('simpleContinueBtn'), { attributes: true, attributeFilter: ['style'] });
+
+        async function runSimple() {
+            simpleResultEl.textContent = '';
+            $('simpleCopyBtn').disabled = $('simpleDownloadBtn').disabled = true;
+            if (!navigator.usb) {
+                simpleStatusEl.innerHTML = '<span class="err">This browser cannot talk to USB devices. Please use Chrome or Edge.</span>';
+                return;
+            }
+            simpleRunning = true;
+            simpleStatusEl.textContent = 'Choose the micro:bit in the popup...';
+            try {
+                await testAll({ flashByBoard: true, continueButton: $('simpleContinueBtn') });
+                simpleRunning = false;
+                simpleResultEl.textContent = describeMatrix(lastMatrix);
+                simpleStatusEl.innerHTML = '<span class="ok">Done. Please copy or download the report and send it back.</span>';
+            } catch (error) {
+                simpleRunning = false;
+                const message = /No device selected/.test(error.message) ? 'No micro:bit was chosen. Click Run test to try again.' : (error.message || String(error));
+                simpleStatusEl.innerHTML = `<span class="err">${message}</span>`;
+                simpleResultEl.textContent = lastMatrix.length ? describeMatrix(lastMatrix) : '';
+                throw error;
+            } finally {
+                simpleRunning = false;
+                $('simpleContinueBtn').style.display = 'none';
+                $('stepContinue').classList.remove('current');
+                $('simpleCopyBtn').disabled = $('simpleDownloadBtn').disabled = !runs.length;
+            }
+        }
+
+        $('simpleRunBtn').addEventListener('click', () => guarded(runSimple));
+        $('simpleCopyBtn').addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(reportText()); simpleStatusEl.textContent = 'Report copied. Paste it into an email or message.'; }
+            catch (error) { simpleStatusEl.innerHTML = `<span class="err">Copy failed (${error.message}); use Download report instead.</span>`; }
+        });
+        $('simpleDownloadBtn').addEventListener('click', () => {
+            const blob = new Blob([reportText()], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `microbit-usb-test-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        });
+
+        // ---------- wiring ----------
+
+        $('connectBtn').addEventListener('click', () => guarded(async () => { await disconnect(); await connect(); }));
+        $('disconnectBtn').addEventListener('click', () => guarded(disconnect));
+        for (const button of document.querySelectorAll('button.bench')) {
+            button.addEventListener('click', () => guarded(async () => {
+                await transport.open();
+                transport.delayBeforeRead = Number($('delayRead').value);
+                liveEl.textContent = `Running ${button.textContent}...`;
+                try {
+                    await benchmarks[button.dataset.test]();
+                } finally {
+                    transport.delayBeforeRead = 0;
+                }
+                if (button.dataset.test !== 'all') liveEl.textContent = `${button.textContent} done.`;
+            }));
+        }
+        $('flashBtn').addEventListener('click', () => guarded(flash));
+        $('testAllBtn').addEventListener('click', () => guarded(testAll));
+        $('stopBtn').addEventListener('click', () => { if (transport) transport.abort(); });
+        $('file').addEventListener('change', event => setFile(event.target.files[0]));
+        $('loadUrlBtn').addEventListener('click', () => guarded(() => loadUrl($('fileUrl').value)));
+        $('drop').addEventListener('drop', event => setFile(event.dataTransfer.files[0]));
+        ['drag', 'dragstart', 'dragend', 'dragover', 'dragenter', 'dragleave', 'drop'].forEach(name => {
+            $('drop').addEventListener(name, event => { event.preventDefault(); event.stopPropagation(); });
+        });
+        ['dragover', 'dragenter'].forEach(name => $('drop').addEventListener(name, () => $('drop').classList.add('hover')));
+        ['dragleave', 'dragend', 'drop'].forEach(name => $('drop').addEventListener(name, () => $('drop').classList.remove('hover')));
+
+        $('downloadBtn').addEventListener('click', () => {
+            const data = { generatedBy: `micro:bit USB speed test, page version ${PAGE_VERSION}`, pageVersion: PAGE_VERSION, exportedAt: new Date().toISOString(), environment: env, device: deviceInfo, runs };
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `dapjs-bench-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        });
+        $('copyBtn').addEventListener('click', async () => {
+            const text = `${$('envText').textContent}\n\n${deviceTextEl.textContent}\n\n${logEl.value}`;
+            try { await navigator.clipboard.writeText(text); liveEl.textContent = 'Copied.'; }
+            catch (error) { logEl.select(); liveEl.textContent = `Clipboard blocked (${error.message}); the log is selected, press Ctrl+C.`; }
+        });
+        $('clearBtn').addEventListener('click', () => { runs.length = 0; logEl.value = ''; summaryEl.innerHTML = ''; });
+
+        if (navigator.usb) {
+            navigator.usb.addEventListener('disconnect', event => {
+                if (usbDevice && event.device === usbDevice) { transport = null; deviceStateEl.textContent = 'USB device unplugged'; updateButtons(); }
+            });
+        }
+
+        $('pageVersion').textContent = PAGE_VERSION;
+        if (/Mac/.test(navigator.platform || '')) $('macNote').style.display = '';
+        describeEnvironment();
+        updateButtons();
+
+        // ?selftest drives the simulated device through every test, for checking the bench without a board.
+        if (new URLSearchParams(location.search).has('selftest')) {
+            guarded(async () => {
+                modeEl.value = 'fake';
+                await connect();
+                await benchmarks.all();
+                await loadUrl($('fileUrl').value);
+                $('limitPages').value = '50';
+                await flash();
+                appendLog(`selftest finished with ${runs.length} runs`);
+                logEl.textContent = logEl.value;
+                document.title = 'selftest done';
+            });
+        }
+    </script>
+</body>
+</html>
