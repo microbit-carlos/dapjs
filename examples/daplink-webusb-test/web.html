@@ -45,6 +45,7 @@
         button.primary { background: #2d8f4e; }
         button.primary:hover { background: #35a85b; }
         button.primary:disabled { background: #3b5468; color: #9bb0bf; }
+        button.done { background: #2d8f4e; }
         button.danger { background: #a63d2f; }
         select, input[type=number], input[type=text] { font-size: 13px; padding: 4px 6px; border-radius: 4px; border: 1px solid #4b7a9a; background: #0b3a5c; color: #d7ecfb; }
         label { font-size: 13px; margin-right: 14px; white-space: nowrap; }
@@ -70,6 +71,11 @@
         #simpleStatus { font-size: 15px; }
         #simpleResult { font-size: 15px; margin: 10px 0; min-height: 20px; }
         #simple label { display: block; white-space: normal; margin: 10px 0; }
+        #simple .row label { display: inline; margin: 0 10px 0 0; }
+        #connectionRow.current { background: rgba(255, 210, 122, 0.18); border-radius: 4px; padding: 6px 8px; color: #fff; font-weight: 600; }
+        #connectionRow.needed { background: rgba(255, 107, 90, 0.22); outline: 2px solid #ff6b5a; border-radius: 4px; padding: 6px 8px; color: #fff; font-weight: 600; }
+        #connectionNeeded { display: none; width: 100%; color: #ff9d8a; font-weight: 600; }
+        #connectionRow.needed #connectionNeeded { display: block; }
         .warn { color: #ffd27a; font-weight: 600; }
         ol.steps li.current { color: #fff; font-weight: 600; background: rgba(255, 210, 122, 0.18); border-radius: 4px; padding: 2px 6px; margin-left: -6px; }
         @keyframes attention { 0% { box-shadow: 0 0 0 0 rgba(255, 210, 122, 0.9); } 70% { box-shadow: 0 0 0 16px rgba(255, 210, 122, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 210, 122, 0); } }
@@ -98,7 +104,14 @@
             <span id="simpleStatus" class="note">Not started. The test takes two to four minutes and flashes the micro:bit a few times.</span>
         </div>
         <div id="simpleResult"></div>
-        <label>Anything about your setup, such as the computer model or a USB hub or adapter in use (optional)
+        <div class="row" id="connectionRow">
+            <span>How is the micro:bit connected?</span>
+            <label><input type="radio" name="connection" value="directly into the computer"> directly into the computer</label>
+            <label><input type="radio" name="connection" value="through a hub, dock or adapter"> through a hub, dock or adapter</label>
+            <label><input type="radio" name="connection" value="not sure"> not sure</label>
+            <span id="connectionNeeded">Please answer this question first, then click the button again.</span>
+        </div>
+        <label>(optional) Anything about your setup, such as the computer model or a USB hub or adapter in use 
             <input id="simpleNotes" type="text" placeholder="e.g. Surface Pro 12, micro:bit on a USB-C to USB-A adapter">
         </label>
         <div class="row">
@@ -246,7 +259,7 @@
         'use strict';
 
         // Bump when the tests or the report format change, so reports from different versions are not compared blindly.
-        const PAGE_VERSION = '1.0';
+        const PAGE_VERSION = '1.1';
 
         // dapjs builds its enums as const enums, so the values are repeated here.
         const DAP_VENDOR_ID = 0x0D28;
@@ -526,26 +539,44 @@
         const liveEl = $('live'), statusEl = $('status'), barEl = $('bar'), transferEl = $('transfer');
         const logEl = $('log'), summaryEl = $('summary');
 
+        // The WebGL renderer string names the GPU, which on Windows on Arm identifies the Snapdragon generation.
+        function gpuName() {
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (!gl) return 'no WebGL';
+                const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+            } catch (error) { return 'unavailable'; }
+        }
+
         async function describeEnvironment() {
             env = {
                 userAgent: navigator.userAgent,
                 cores: navigator.hardwareConcurrency,
+                memoryGB: navigator.deviceMemory,
+                gpu: gpuName(),
                 webusb: !!navigator.usb, webhid: !!navigator.hid, secureContext: window.isSecureContext,
                 dapjs: typeof DAPjs !== 'undefined'
             };
             if (navigator.userAgentData) {
                 try {
-                    const h = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'platformVersion', 'fullVersionList', 'model']);
+                    const h = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'platformVersion', 'fullVersionList', 'model', 'wow64', 'formFactors']);
                     env.platform = `${h.platform} ${h.platformVersion}`;
                     env.architecture = `${h.architecture}${h.bitness}`;
+                    env.emulated = h.wow64 === true ? 'browser runs under x64 emulation' : 'browser runs natively';
+                    env.formFactors = (h.formFactors || []).join('/');
                     env.browser = (h.fullVersionList || []).map(b => `${b.brand} ${b.version}`).join(', ');
                 } catch (error) { env.uaDataError = String(error); }
             }
             env.pageVersion = PAGE_VERSION;
+            if (navigator.getBattery) {
+                try { const b = await navigator.getBattery(); env.power = `${b.charging ? 'on mains power' : 'on battery'}, ${Math.round(b.level * 100)}%`; } catch (error) { env.power = 'unknown'; }
+            }
             $('envText').textContent = [
                 `micro:bit USB speed test, page version ${PAGE_VERSION}`,
                 env.userAgent,
-                env.platform ? `Platform ${env.platform}, architecture ${env.architecture}` : 'navigator.userAgentData not available',
+                env.platform ? `Platform ${env.platform}, architecture ${env.architecture}, ${env.emulated}${env.formFactors ? `, ${env.formFactors}` : ''}` : 'navigator.userAgentData not available',
+                `GPU ${env.gpu}; memory ${env.memoryGB || '?'} GB; ${env.power || 'power state unknown'}`,
                 env.browser ? `Browser ${env.browser}` : '',
                 `${env.cores} cores, WebUSB ${env.webusb ? 'yes' : 'NO'}, WebHID ${env.webhid ? 'yes' : 'NO'}, secure context ${env.secureContext ? 'yes' : 'NO'}, dapjs ${env.dapjs ? 'loaded' : 'MISSING (run npm run build)'}`
             ].filter(Boolean).join('\n');
@@ -710,6 +741,7 @@
             }
             $('flashBtn').disabled = busy || !connected || !fileBuffer;
             $('stopBtn').disabled = !busy;
+            refreshReportButtons();
         }
 
         // ---------- runs and reporting ----------
@@ -1103,6 +1135,7 @@
             return [
                 `micro:bit USB speed test report, page version ${PAGE_VERSION}`,
                 `Generated ${new Date().toISOString()} by ${location.href}`,
+                `Connection: ${(document.querySelector('input[name="connection"]:checked') || {}).value || '(not answered)'}`,
                 `Tester notes: ${notes || '(none)'}`,
                 `Result: ${simpleResultEl.textContent || '(no result)'}`,
                 '', $('envText').textContent, '', deviceTextEl.textContent, '', logEl.value
@@ -1132,8 +1165,11 @@
         simpleMirror.observe($('simpleContinueBtn'), { attributes: true, attributeFilter: ['style'] });
 
         async function runSimple() {
-            simpleResultEl.textContent = '';
-            $('simpleCopyBtn').disabled = $('simpleDownloadBtn').disabled = true;
+            // The previous result stays on screen until this run has one of its own, so an accidental
+            // click or key press on Run test cannot wipe a finished report.
+            const previousResult = simpleResultEl.textContent;
+            const previousRuns = runs.length;
+            const hadReport = hasReport();
             if (!navigator.usb) {
                 simpleStatusEl.innerHTML = '<span class="err">This browser cannot talk to USB devices. Please use Chrome or Edge.</span>';
                 return;
@@ -1143,34 +1179,85 @@
             try {
                 await testAll({ flashByBoard: true, continueButton: $('simpleContinueBtn') });
                 simpleRunning = false;
-                simpleResultEl.textContent = describeMatrix(lastMatrix);
+                simpleResultEl.textContent = `Completed ${new Date().toLocaleString()}. ${describeMatrix(lastMatrix)}`;
                 simpleStatusEl.innerHTML = '<span class="ok">Done. Please copy or download the report and send it back.</span>';
             } catch (error) {
                 simpleRunning = false;
-                const message = /No device selected/.test(error.message) ? 'No micro:bit was chosen. Click Run test to try again.' : (error.message || String(error));
-                simpleStatusEl.innerHTML = `<span class="err">${message}</span>`;
-                simpleResultEl.textContent = lastMatrix.length ? describeMatrix(lastMatrix) : '';
+                const cancelled = /No device selected/.test(error.message);
+                if (runs.length === previousRuns && hadReport) {
+                    simpleResultEl.textContent = previousResult;
+                    simpleStatusEl.innerHTML = `<span class="warn">${cancelled ? 'No micro:bit was chosen' : 'The new run did not start'}; the previous report is still here. Click Run test to try again.</span>`;
+                } else {
+                    simpleStatusEl.innerHTML = `<span class="err">${cancelled ? 'No micro:bit was chosen. Click Run test to try again.' : (error.message || String(error))}</span>`;
+                    simpleResultEl.textContent = lastMatrix.length ? describeMatrix(lastMatrix) : previousResult;
+                }
                 throw error;
             } finally {
                 simpleRunning = false;
                 $('simpleContinueBtn').style.display = 'none';
                 $('stepContinue').classList.remove('current');
-                $('simpleCopyBtn').disabled = $('simpleDownloadBtn').disabled = !runs.length;
+                $('simpleRunBtn').blur();
+                refreshReportButtons();
             }
         }
 
+        // The report is only handed out once the connection question is answered.
+        function connectionAnswered() { return !!document.querySelector('input[name="connection"]:checked'); }
+
+        function hasReport() { return runs.length > 0; }
+        function refreshReportButtons() {
+            const ready = hasReport() && !busy;
+            $('connectionRow').classList.toggle('current', ready && !connectionAnswered());
+            $('simpleCopyBtn').disabled = $('simpleDownloadBtn').disabled = !ready;
+        }
+
+        // Called by the report buttons: true when the question is answered, otherwise points the tester at it.
+        function requireConnectionAnswer() {
+            if (connectionAnswered()) return true;
+            const row = $('connectionRow');
+            row.classList.add('needed');
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            simpleStatusEl.innerHTML = '<span class="err">Please answer the question below first.</span>';
+            return false;
+        }
+        for (const radio of document.querySelectorAll('input[name="connection"]')) {
+            radio.addEventListener('change', () => {
+                $('connectionRow').classList.remove('needed');
+                refreshReportButtons();
+                if (runs.length && !busy) simpleStatusEl.innerHTML = '<span class="ok">Thanks. Now copy or download the report and send it back.</span>';
+            });
+        }
+
         $('simpleRunBtn').addEventListener('click', () => guarded(runSimple));
+        // Shows a tick on the button for a few seconds so the tester can see the click did something.
+        function flashDone(button, label) {
+            const original = button.dataset.label || button.textContent;
+            button.dataset.label = original;
+            button.textContent = `\u2713 ${label}`;
+            button.classList.add('done');
+            clearTimeout(button.doneTimer);
+            button.doneTimer = setTimeout(() => { button.textContent = original; button.classList.remove('done'); }, 4000);
+        }
         $('simpleCopyBtn').addEventListener('click', async () => {
-            try { await navigator.clipboard.writeText(reportText()); simpleStatusEl.textContent = 'Report copied. Paste it into an email or message.'; }
-            catch (error) { simpleStatusEl.innerHTML = `<span class="err">Copy failed (${error.message}); use Download report instead.</span>`; }
+            if (!requireConnectionAnswer()) return;
+            try {
+                await navigator.clipboard.writeText(reportText());
+                flashDone($('simpleCopyBtn'), 'Copied to clipboard');
+                simpleStatusEl.innerHTML = '<span class="ok">Report copied to the clipboard. Paste it into an email or message and send it back.</span>';
+            } catch (error) {
+                simpleStatusEl.innerHTML = `<span class="err">Copy failed (${error.message}); use Download report instead.</span>`;
+            }
         });
         $('simpleDownloadBtn').addEventListener('click', () => {
+            if (!requireConnectionAnswer()) return;
             const blob = new Blob([reportText()], { type: 'text/plain' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `microbit-usb-test-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
             a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            flashDone($('simpleDownloadBtn'), 'Saved to Downloads');
+            simpleStatusEl.innerHTML = `<span class="ok">Report saved as ${a.download} in your Downloads folder. Send that file back.</span>`;
         });
 
         // ---------- wiring ----------
@@ -1216,7 +1303,7 @@
             try { await navigator.clipboard.writeText(text); liveEl.textContent = 'Copied.'; }
             catch (error) { logEl.select(); liveEl.textContent = `Clipboard blocked (${error.message}); the log is selected, press Ctrl+C.`; }
         });
-        $('clearBtn').addEventListener('click', () => { runs.length = 0; logEl.value = ''; summaryEl.innerHTML = ''; });
+        $('clearBtn').addEventListener('click', () => { runs.length = 0; logEl.value = ''; summaryEl.innerHTML = ''; refreshReportButtons(); });
 
         if (navigator.usb) {
             navigator.usb.addEventListener('disconnect', event => {

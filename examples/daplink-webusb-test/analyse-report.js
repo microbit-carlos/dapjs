@@ -11,6 +11,8 @@ function parse(text) {
     r.browser = (text.match(/^Browser (.*)$/m) || [])[1] || '?';
     r.platform = (text.match(/^Platform (.*)$/m) || [])[1] || '?';
     r.board = (text.match(/^\s*Board: (.*)$/m) || [])[1] || '?';
+    r.gpu = (text.match(/^GPU (.*)$/m) || [])[1] || '';
+    r.connection = (text.match(/^Connection: (.*)$/m) || [])[1] || '';
     r.rows = [];
     for (const m of text.matchAll(/^\s*transport (.+?) \| round trip ([\d.]+) \| OUT ([\d.]+) \| IN ([\d.]+) \| GET_STATUS ([\d.-]+) \| wait overhead ([\d.-]+) \| flash s ([\d.-]+) \| ms\/page ([\d.-]+) \| CLOSE ms ([\d.-]+) \| >50 ms ([\d-]+)/gm)) {
         r.rows.push({ transport: m[1].replace(/ on interface \d+/, ''), rt: num(m[2]), out: num(m[3]), in: num(m[4]), status: num(m[5]), wait: num(m[6]), flashS: num(m[7]), msPerPage: num(m[8]), closeMs: num(m[9]), over50: num(m[10]) });
@@ -46,6 +48,8 @@ for (const file of process.argv.slice(2)) {
     console.log(`\n${file}`);
     console.log(`  page ${r.version} | ${r.browser} | ${r.platform}`);
     console.log(`  ${r.board}`);
+    if (r.gpu) console.log(`  ${r.gpu}`);
+    if (r.connection) console.log(`  connection: ${r.connection}`);
     if (r.notes) console.log(`  tester notes: ${r.notes}`);
     for (const x of r.rows) console.log(`  ${x.transport.padEnd(32)} rt ${String(x.rt).padStart(5)} out ${String(x.out).padStart(5)} in ${String(x.in).padStart(5)} getstatus ${String(x.status).padStart(5)} wait ${String(x.wait).padStart(5)} flash ${Number.isFinite(x.flashS) ? x.flashS + ' s' : '-'}`);
     for (const line of verdict(r)) console.log(`  -> ${line}`);
