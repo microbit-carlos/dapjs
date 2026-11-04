@@ -242,10 +242,15 @@
     <section>
         <h2>Results</h2>
         <div id="summary"></div>
-        <textarea id="log" readonly placeholder="Run summaries accumulate here. Download JSON for the raw per-transfer timings."></textarea>
+        <p class="note">
+            The report so far, exactly as Copy report and Download report give it. It updates while a test runs,
+            so it can be sent at any point: on a slow machine a few minutes of a run is usually enough.
+        </p>
+        <textarea id="log" readonly></textarea>
         <div class="row">
+            <button id="copyBtn">Copy report</button>
+            <button id="downloadReportBtn">Download report</button>
             <button id="downloadBtn">Download JSON</button>
-            <button id="copyBtn">Copy log</button>
             <button id="clearBtn">Clear</button>
             <label><input id="verbose" type="checkbox"> Verbose console (one line per transfer in DevTools; slows the page)</label>
         </div>
@@ -259,7 +264,7 @@
         'use strict';
 
         // Bump when the tests or the report format change, so reports from different versions are not compared blindly.
-        const PAGE_VERSION = '1.1';
+        const PAGE_VERSION = '1.2';
 
         // dapjs builds its enums as const enums, so the values are repeated here.
         const DAP_VENDOR_ID = 0x0D28;
@@ -793,9 +798,10 @@
             return run;
         }
 
+        let logText = '';
         function appendLog(text) {
-            logEl.value += (logEl.value ? '\n\n' : '') + text;
-            logEl.scrollTop = logEl.scrollHeight;
+            logText += (logText ? '\n\n' : '') + text;
+            refreshReportView();
         }
 
         function renderSummary(run) {
@@ -1132,15 +1138,50 @@
 
         function reportText() {
             const notes = $('simpleNotes').value.trim();
-            return [
+            const lines = [
                 `micro:bit USB speed test report, page version ${PAGE_VERSION}`,
                 `Generated ${new Date().toISOString()} by ${location.href}`,
                 `Connection: ${(document.querySelector('input[name="connection"]:checked') || {}).value || '(not answered)'}`,
                 `Tester notes: ${notes || '(none)'}`,
-                `Result: ${simpleResultEl.textContent || '(no result)'}`,
-                '', $('envText').textContent, '', deviceTextEl.textContent, '', logEl.value
-            ].join('\n');
+                `Result: ${busy ? '(still running, see In progress at the end)' : simpleResultEl.textContent || '(no result)'}`,
+                '', $('envText').textContent, '', deviceTextEl.textContent, '', logText
+            ];
+            if (busy) lines.push('', ...inProgressLines());
+            return lines.join('\n');
         }
+
+        // The step that has not finished yet, so a report copied mid-run still has its timings.
+        function inProgressLines() {
+            const lines = [`== In progress | ${(deviceInfo && deviceInfo.transport) || 'no device'} | ${new Date().toISOString()}`, `   ${liveEl.textContent}`];
+            const events = transport ? transport.events : [];
+            for (const [label, dir] of [['OUT', 'out'], ['IN', 'in']]) {
+                const s = stats(events.filter(e => e.dir === dir).map(e => e.ms));
+                if (s) lines.push(`   ${statsLine(label, s)}`);
+            }
+            return lines;
+        }
+
+        // The Results box shows the report itself; it is left alone while focused so a selection survives.
+        function refreshReportView() {
+            if (document.activeElement === logEl) return;
+            const top = logEl.scrollTop, atEnd = top + logEl.clientHeight >= logEl.scrollHeight - 20;
+            logEl.value = reportText();
+            logEl.scrollTop = atEnd ? logEl.scrollHeight : top;
+        }
+        setInterval(() => { if ($('advanced').open) refreshReportView(); }, 2000);
+        $('advanced').addEventListener('toggle', refreshReportView);
+
+        // Saves text into Downloads and returns the file name.
+        function saveFile(text, name, type) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([text], { type }));
+            a.download = name;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            return name;
+        }
+        const stamp = () => new Date().toISOString().replace(/[:.]/g, '-');
+        const reportName = () => `microbit-usb-test-${busy ? 'partial-' : ''}${stamp()}.txt`;
 
         function describeMatrix(rows) {
             const parts = rows.map(r => `${r.transport.replace(/ on interface \d+/, '')}: ${fmt(r.rtP50, 1)} ms per command${Number.isFinite(r.flashS) ? `, flash ${fmt(r.flashS, 0)} s` : ''}`);
@@ -1250,14 +1291,9 @@
         });
         $('simpleDownloadBtn').addEventListener('click', () => {
             if (!requireConnectionAnswer()) return;
-            const blob = new Blob([reportText()], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `microbit-usb-test-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            const name = saveFile(reportText(), reportName(), 'text/plain');
             flashDone($('simpleDownloadBtn'), 'Saved to Downloads');
-            simpleStatusEl.innerHTML = `<span class="ok">Report saved as ${a.download} in your Downloads folder. Send that file back.</span>`;
+            simpleStatusEl.innerHTML = `<span class="ok">Report saved as ${name} in your Downloads folder. Send that file back.</span>`;
         });
 
         // ---------- wiring ----------
@@ -1291,19 +1327,18 @@
 
         $('downloadBtn').addEventListener('click', () => {
             const data = { generatedBy: `micro:bit USB speed test, page version ${PAGE_VERSION}`, pageVersion: PAGE_VERSION, exportedAt: new Date().toISOString(), environment: env, device: deviceInfo, runs };
-            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `dapjs-bench-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            saveFile(JSON.stringify(data), `dapjs-bench-${stamp()}.json`, 'application/json');
+        });
+        // These two work mid-run, unlike the simple view's buttons.
+        $('downloadReportBtn').addEventListener('click', () => {
+            saveFile(reportText(), reportName(), 'text/plain');
+            flashDone($('downloadReportBtn'), 'Saved to Downloads');
         });
         $('copyBtn').addEventListener('click', async () => {
-            const text = `${$('envText').textContent}\n\n${deviceTextEl.textContent}\n\n${logEl.value}`;
-            try { await navigator.clipboard.writeText(text); liveEl.textContent = 'Copied.'; }
-            catch (error) { logEl.select(); liveEl.textContent = `Clipboard blocked (${error.message}); the log is selected, press Ctrl+C.`; }
+            try { await navigator.clipboard.writeText(reportText()); flashDone($('copyBtn'), 'Copied to clipboard'); }
+            catch (error) { refreshReportView(); logEl.select(); liveEl.textContent = `Clipboard blocked (${error.message}); the report is selected, press Ctrl+C.`; }
         });
-        $('clearBtn').addEventListener('click', () => { runs.length = 0; logEl.value = ''; summaryEl.innerHTML = ''; refreshReportButtons(); });
+        $('clearBtn').addEventListener('click', () => { runs.length = 0; logText = ''; summaryEl.innerHTML = ''; refreshReportButtons(); refreshReportView(); });
 
         if (navigator.usb) {
             navigator.usb.addEventListener('disconnect', event => {
